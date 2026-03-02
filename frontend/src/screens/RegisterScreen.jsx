@@ -4,16 +4,16 @@ import { AppBackground, PageCard, Logo, Field, PrimaryButton, Alert } from '../c
 import { S } from '../shared-styles'
 
 export default function RegisterScreen({ onSuccess, onNavigate }) {
-  const [firstName, setFirstName]           = useState('')
-  const [lastName, setLastName]             = useState('')
-  const [email, setEmail]                   = useState('')
-  const [phone, setPhone]                   = useState('')
-  const [password, setPassword]             = useState('')
+  const [firstName, setFirstName]             = useState('')
+  const [lastName, setLastName]               = useState('')
+  const [email, setEmail]                     = useState('')
+  const [phone, setPhone]                     = useState('')
+  const [password, setPassword]               = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
-  const [loading, setLoading]               = useState(false)
-  const [error, setError]                   = useState('')
-  const [success, setSuccess]               = useState('')
-  const [visible, setVisible]               = useState(false)
+  const [loading, setLoading]                 = useState(false)
+  const [error, setError]                     = useState('')
+  const [success, setSuccess]                 = useState('')
+  const [visible, setVisible]                 = useState(false)
 
   useEffect(() => {
     setTimeout(() => setVisible(true), 30)
@@ -57,18 +57,21 @@ export default function RegisterScreen({ onSuccess, onNavigate }) {
         <Alert message={error} type="error" />
         <Alert message={success} type="success" />
 
+        {/* Fix 2: row wraps on small screens using rowField style */}
         <div style={S.row}>
           <Field
             label="First Name" id="reg-first" type="text"
             placeholder="John"
             value={firstName} onChange={setFirstName}
             autoComplete="given-name"
+            style={S.rowField}
           />
           <Field
             label="Last Name" id="reg-last" type="text"
             placeholder="Doe"
             value={lastName} onChange={setLastName}
             autoComplete="family-name"
+            style={S.rowField}
           />
         </div>
 

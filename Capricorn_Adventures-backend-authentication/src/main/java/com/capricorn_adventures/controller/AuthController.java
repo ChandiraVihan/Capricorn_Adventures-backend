@@ -60,9 +60,10 @@ public class AuthController {
             return ResponseEntity.ok(Map.of("message",
                     "If this email is registered, a reset link has been sent."));
         } catch (Exception e) {
-            // Log the real error but return a safe message
+            // This will print the REAL error in your terminal
+            e.printStackTrace();
             return ResponseEntity.status(500).body(Map.of("error",
-                    "Failed to send reset email. Please try again later."));
+                    "Failed to send reset email: " + e.getMessage()));
         }
     }
 

@@ -16,11 +16,24 @@ html, body, #root {
   background: var(--bg);
   color: var(--cream);
   overflow-x: hidden;
+  /* Fix 8: scroll padding so keyboard doesn't hide focused inputs */
+  scroll-padding-bottom: 80px;
+}
+
+/* Fix 8: ensure smooth scrolling when keyboard opens */
+html {
+  scroll-behavior: smooth;
 }
 
 *:focus-visible {
   outline: 2px solid var(--gold);
   outline-offset: 2px;
+}
+
+/* Fix 8: make body scrollable so content isn't hidden by keyboard */
+body {
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 input:-webkit-autofill,

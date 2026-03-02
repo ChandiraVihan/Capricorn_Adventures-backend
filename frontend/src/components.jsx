@@ -59,18 +59,52 @@ export function AppBackground() {
 /* ─── Card shell with gold top/bottom lines ─── */
 export function PageCard({ children, visible }) {
   return (
-    <div style={S.page}>
-      <div style={{
-        width: '100%', maxWidth: '440px',
-        opacity: visible ? 1 : 0,
-        transform: visible ? 'translateY(0) scale(1)' : 'translateY(40px) scale(0.96)',
-        transition: 'opacity 0.8s cubic-bezier(0.16,1,0.3,1), transform 0.8s cubic-bezier(0.16,1,0.3,1)',
-      }}>
-        <div style={S.topLine} />
-        <div style={S.card}>{children}</div>
-        <div style={S.bottomLine} />
+    <>
+      {/* Fix 6: landscape mode + Fix 4: scrollable page wrapper */}
+      <style>{`
+        .page-wrap {
+          min-height: 100dvh;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 20px 16px;
+          position: relative;
+          z-index: 1;
+          overflow-y: auto;
+          -webkit-overflow-scrolling: touch;
+        }
+        /* Fix 6: landscape on phone — reduce vertical padding, allow scroll */
+        @media (max-height: 600px) and (orientation: landscape) {
+          .page-wrap {
+            align-items: flex-start;
+            padding: 12px 16px;
+          }
+        }
+        /* Fix 1: tablet portrait & landscape */
+        @media (min-width: 600px) {
+          .card-inner { padding: 40px 36px 36px !important; }
+        }
+        @media (min-width: 768px) and (orientation: landscape) {
+          .page-wrap { padding: 24px 16px; }
+        }
+      `}</style>
+      <div className="page-wrap">
+        <div style={{
+          width: '100%',
+          maxWidth: '440px',
+          opacity: visible ? 1 : 0,
+          transform: visible ? 'translateY(0) scale(1)' : 'translateY(40px) scale(0.96)',
+          transition: 'opacity 0.8s cubic-bezier(0.16,1,0.3,1), transform 0.8s cubic-bezier(0.16,1,0.3,1)',
+          // Fix 4: ensure card doesn't get clipped on short screens
+          marginTop: 'auto',
+          marginBottom: 'auto',
+        }}>
+          <div style={S.topLine} />
+          <div className="card-inner" style={S.card}>{children}</div>
+          <div style={S.bottomLine} />
+        </div>
       </div>
-    </div>
+    </>
   )
 }
 
@@ -88,13 +122,21 @@ export function Logo() {
 /* ─── Input field ─── */
 import { useState } from 'react'
 
-export function Field({ label, id, type = 'text', placeholder, value, onChange, autoComplete, inputMode }) {
+export function Field({ label, id, type = 'text', placeholder, value, onChange, autoComplete, inputMode, style: extraStyle }) {
   const [focused, setFocused] = useState(false)
   const [showPw, setShowPw] = useState(false)
   const isPassword = type === 'password'
 
+  // Fix 8: scroll input into view when focused on mobile
+  function handleFocus(e) {
+    setFocused(true)
+    setTimeout(() => {
+      e.target.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+    }, 300)
+  }
+
   return (
-    <div style={S.field}>
+    <div style={{ ...S.field, ...extraStyle }}>
       <label htmlFor={id} style={S.label}>{label}</label>
       <div style={{ position: 'relative' }}>
         <input
@@ -105,7 +147,7 @@ export function Field({ label, id, type = 'text', placeholder, value, onChange, 
           onChange={e => onChange(e.target.value)}
           autoComplete={autoComplete}
           inputMode={inputMode}
-          onFocus={() => setFocused(true)}
+          onFocus={handleFocus}
           onBlur={() => setFocused(false)}
           style={{
             ...S.input,
@@ -120,7 +162,15 @@ export function Field({ label, id, type = 'text', placeholder, value, onChange, 
             type="button"
             tabIndex={-1}
             onClick={() => setShowPw(v => !v)}
-            style={{ position: 'absolute', right: '13px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: showPw ? '#c9a84c' : 'rgba(255,255,255,0.28)', padding: '4px', display: 'flex', alignItems: 'center', transition: 'color 0.2s' }}
+            style={{
+              position: 'absolute', right: '13px', top: '50%',
+              transform: 'translateY(-50%)', background: 'none', border: 'none',
+              cursor: 'pointer', color: showPw ? '#c9a84c' : 'rgba(255,255,255,0.28)',
+              padding: '8px',  // Fix 7: larger tap area
+              display: 'flex', alignItems: 'center',
+              transition: 'color 0.2s',
+              WebkitTapHighlightColor: 'transparent',
+            }}
           >
             {showPw ? (
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
