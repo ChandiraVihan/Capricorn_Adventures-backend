@@ -1,0 +1,32 @@
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:      #02060f;
+  --gold:    #c9a84c;
+  --gold-lt: #e8c97a;
+  --cream:   #f0e8d8;
+  --muted:   #4a5568;
+  --error:   #fc8181;
+  --success: #68d391;
+}
+
+html, body, #root {
+  height: 100%;
+  font-family: 'Raleway', sans-serif;
+  background: var(--bg);
+  color: var(--cream);
+  overflow-x: hidden;
+}
+
+*:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}
+
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus {
+  -webkit-box-shadow: 0 0 0px 1000px #0a1020 inset;
+  -webkit-text-fill-color: #f0e8d8;
+  transition: background-color 5000s ease-in-out 0s;
+}
