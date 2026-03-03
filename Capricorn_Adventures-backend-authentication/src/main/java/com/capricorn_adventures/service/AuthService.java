@@ -59,9 +59,9 @@ public class AuthService {
         }
 
         User user = User.builder()
-            .email(email.toLowerCase().trim())
-            .passwordHash(passwordEncoder.encode(password))
-            .build();
+                .email(email.toLowerCase().trim())
+                .passwordHash(passwordEncoder.encode(password))
+                .build();
         user = userRepository.save(user);
 
         // TODO: send verification email (email must be verified)
@@ -74,7 +74,7 @@ public class AuthService {
     @Transactional
     public Map<String, Object> login(String email, String password) {
         User user = userRepository.findByEmail(email.toLowerCase().trim())
-            .orElseThrow(() -> new RuntimeException("Invalid email or password"));
+                .orElseThrow(() -> new RuntimeException("Invalid email or password"));
 
         if (!user.isActive()) {
             throw new RuntimeException("Account is suspended or deleted");
@@ -90,8 +90,8 @@ public class AuthService {
 
             int remaining = Math.max(0, 5 - user.getFailedLoginCount());
             throw new RuntimeException(remaining > 0
-                ? "Invalid email or password. " + remaining + " attempts remaining."
-                : "Account locked due to too many failed attempts. Try again in 15 minutes.");
+                    ? "Invalid email or password. " + remaining + " attempts remaining."
+                    : "Account locked due to too many failed attempts. Try again in 15 minutes.");
         }
 
         user.resetFailedLogin();
@@ -112,14 +112,14 @@ public class AuthService {
         UUID userId = jwtUtil.extractUserId(refreshToken);
 
         User user = userRepository.findById(userId)
-            .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new RuntimeException("User not found"));
 
         if (!user.isActive()) {
             throw new RuntimeException("Account is not active");
         }
 
         String newAccessToken = jwtUtil.generateAccessToken(
-            user.getId(), user.getEmail(), user.getRole().name()
+                user.getId(), user.getEmail(), user.getRole().name()
         );
 
         Map<String, Object> response = new HashMap<>();
@@ -131,7 +131,7 @@ public class AuthService {
     @Transactional
     public void forgotPassword(String email) {
         User user = userRepository.findByEmail(email.toLowerCase().trim())
-            .orElse(null);
+                .orElse(null);
 
         // Always return silently — don't reveal whether email exists
         if (user == null) return;
@@ -142,13 +142,13 @@ public class AuthService {
         String tokenHash = sha256(rawToken);
 
         PasswordResetToken resetToken = PasswordResetToken.builder()
-            .user(user)
-            .tokenHash(tokenHash)
-            .expiresAt(LocalDateTime.now().plusHours(1))
-            .build();
+                .user(user)
+                .tokenHash(tokenHash)
+                .expiresAt(LocalDateTime.now().plusHours(1))
+                .build();
         resetTokenRepository.save(resetToken);
 
-        String resetLink = frontendUrl + "/reset-password?token=" + rawToken;
+        String resetLink = frontendUrl + "/?token=" + rawToken;
         sendPasswordResetEmail(user.getEmail(), resetLink);
 
         log.info("Password reset requested for: {}", email);
@@ -160,7 +160,7 @@ public class AuthService {
         String tokenHash = sha256(rawToken);
 
         PasswordResetToken resetToken = resetTokenRepository.findByTokenHash(tokenHash)
-            .orElseThrow(() -> new RuntimeException("Invalid or expired reset link"));
+                .orElseThrow(() -> new RuntimeException("Invalid or expired reset link"));
 
         if (!resetToken.isValid()) {
             throw new RuntimeException("Reset link has expired or already been used");
@@ -181,7 +181,7 @@ public class AuthService {
 
     private Map<String, Object> buildAuthResponse(User user) {
         String accessToken  = jwtUtil.generateAccessToken(
-            user.getId(), user.getEmail(), user.getRole().name());
+                user.getId(), user.getEmail(), user.getRole().name());
         String refreshToken = jwtUtil.generateRefreshToken(user.getId());
 
         Map<String, Object> userInfo = new HashMap<>();
@@ -221,12 +221,12 @@ public class AuthService {
         message.setTo(to);
         message.setSubject("Reset your Capricorn Adventures password");
         message.setText(
-            "Hi,\n\n" +
-            "We received a request to reset your password.\n\n" +
-            "Click the link below to set a new password (valid for 1 hour):\n\n" +
-            resetLink + "\n\n" +
-            "If you didn't request this, please ignore this email.\n\n" +
-            "— Capricorn Adventures Team"
+                "Hi,\n\n" +
+                        "We received a request to reset your password.\n\n" +
+                        "Click the link below to set a new password (valid for 1 hour):\n\n" +
+                        resetLink + "\n\n" +
+                        "If you didn't request this, please ignore this email.\n\n" +
+                        "— Capricorn Adventures Team"
         );
         mailSender.send(message);
     }

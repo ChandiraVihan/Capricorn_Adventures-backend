@@ -1,18 +1,22 @@
 import { useState, useEffect } from 'react'
 import { getMeApi, refreshTokenApi } from './api'
-import LoginScreen    from './screens/LoginScreen'
-import RegisterScreen from './screens/RegisterScreen'
-import ForgotScreen   from './screens/ForgotScreen'
-import ProfileScreen  from './screens/ProfileScreen'
+import LoginScreen         from './screens/LoginScreen'
+import RegisterScreen      from './screens/RegisterScreen'
+import ForgotScreen        from './screens/ForgotScreen'
+import ResetPasswordScreen from './screens/ResetPasswordScreen'
+import ProfileScreen       from './screens/ProfileScreen'
 
 export default function App() {
   const [screen, setScreen]             = useState('login')
+  const [resetToken, setResetToken]     = useState(null)
   const [accessToken, setAccessToken]   = useState(() => localStorage.getItem('accessToken'))
   const [refreshToken, setRefreshToken] = useState(() => localStorage.getItem('refreshToken'))
   const [user, setUser]                 = useState(null)
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
+
+    // ── OAuth2 redirect with tokens in URL ──────────────────────
     if (params.get('accessToken')) {
       const at = params.get('accessToken')
       const rt = params.get('refreshToken')
@@ -21,6 +25,19 @@ export default function App() {
       loadProfile(at, rt)
       return
     }
+
+    // ── Password-reset link: ?token=xxxx ───────────────────────
+    // Vite SPA always loads at '/', so just check for the token param directly
+    const token = params.get('token')
+    if (token) {
+      setResetToken(token)
+      setScreen('reset-password')
+      // Remove token from URL bar so it can't be bookmarked or accidentally reused
+      window.history.replaceState({}, '', '/')
+      return
+    }
+
+    // ── Already logged in ────────────────────────────────────────
     if (accessToken) loadProfile(accessToken, refreshToken)
   }, [])
 
@@ -65,10 +82,11 @@ export default function App() {
 
   return (
     <>
-      {screen === 'login'    && <LoginScreen    onSuccess={handleAuthSuccess} onNavigate={setScreen} />}
-      {screen === 'register' && <RegisterScreen onSuccess={handleAuthSuccess} onNavigate={setScreen} />}
-      {screen === 'forgot'   && <ForgotScreen   onNavigate={setScreen} />}
-      {screen === 'profile'  && <ProfileScreen  user={user} accessToken={accessToken} onLogout={logout} />}
+      {screen === 'login'          && <LoginScreen         onSuccess={handleAuthSuccess} onNavigate={setScreen} />}
+      {screen === 'register'       && <RegisterScreen      onSuccess={handleAuthSuccess} onNavigate={setScreen} />}
+      {screen === 'forgot'         && <ForgotScreen        onNavigate={setScreen} />}
+      {screen === 'reset-password' && <ResetPasswordScreen token={resetToken}           onNavigate={setScreen} />}
+      {screen === 'profile'        && <ProfileScreen       user={user} accessToken={accessToken} onLogout={logout} />}
     </>
   )
 }

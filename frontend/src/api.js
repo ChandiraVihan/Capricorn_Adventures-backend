@@ -48,3 +48,14 @@ export async function refreshTokenApi(refreshToken) {
   if (!res.ok) throw new Error('Refresh failed')
   return res.json()
 }
+
+export async function resetPasswordApi(token, newPassword) {
+  const res = await fetch(`${API}/reset-password`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token, newPassword })
+  })
+  const data = await res.json()
+  if (!res.ok) throw new Error(data.error || 'Failed to reset password')
+  return data
+}
