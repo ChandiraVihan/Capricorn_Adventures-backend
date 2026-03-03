@@ -11,6 +11,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.security.web.authentication.SimpleUrlAuthenticationSuccessHandler;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.capricorn_adventures.OAuth;
 import com.capricorn_adventures.User;
@@ -43,6 +44,7 @@ public class OAuthHandler extends SimpleUrlAuthenticationSuccessHandler {
     private String frontendUrl;
 
     @Override
+    @Transactional
     public void onAuthenticationSuccess(HttpServletRequest request,
                                         HttpServletResponse response,
                                         Authentication authentication) throws IOException {
@@ -56,8 +58,8 @@ public class OAuthHandler extends SimpleUrlAuthenticationSuccessHandler {
 
         // 1. Check if OAuth account already exists
         OAuth oauth = oAuthRepository
-            .findByProviderAndProviderUserId(OAuth.Provider.GOOGLE, providerUserId)
-            .orElse(null);
+                .findByProviderAndProviderUserId(OAuth.Provider.GOOGLE, providerUserId)
+                .orElse(null);
 
         User user;
 
@@ -72,22 +74,22 @@ public class OAuthHandler extends SimpleUrlAuthenticationSuccessHandler {
             if (user == null) {
                 // Brand new user — create account
                 user = User.builder()
-                    .email(email)
-                    .emailVerified(true)
-                    .build();
+                        .email(email)
+                        .emailVerified(true)
+                        .build();
                 user = userRepository.save(user);
                 log.info("New user created via Google OAuth: {}", email);
             }
 
             // Link the Google account
             OAuth newOauth = OAuth.builder()
-                .user(user)
-                .provider(OAuth.Provider.GOOGLE)
-                .providerUserId(providerUserId)
-                .providerEmail(email)
-                .providerName(name)
-                .avatarUrl(picture)
-                .build();
+                    .user(user)
+                    .provider(OAuth.Provider.GOOGLE)
+                    .providerUserId(providerUserId)
+                    .providerEmail(email)
+                    .providerName(name)
+                    .avatarUrl(picture)
+                    .build();
             oAuthRepository.save(newOauth);
         }
 
@@ -97,8 +99,8 @@ public class OAuthHandler extends SimpleUrlAuthenticationSuccessHandler {
 
         // 3. Redirect to React frontend with tokens in URL
         String redirectUrl = frontendUrl + "/oauth2/redirect"
-            + "?accessToken="  + URLEncoder.encode(accessToken,  StandardCharsets.UTF_8)
-            + "&refreshToken=" + URLEncoder.encode(refreshToken, StandardCharsets.UTF_8);
+                + "?accessToken="  + URLEncoder.encode(accessToken,  StandardCharsets.UTF_8)
+                + "&refreshToken=" + URLEncoder.encode(refreshToken, StandardCharsets.UTF_8);
 
         getRedirectStrategy().sendRedirect(request, response, redirectUrl);
     }

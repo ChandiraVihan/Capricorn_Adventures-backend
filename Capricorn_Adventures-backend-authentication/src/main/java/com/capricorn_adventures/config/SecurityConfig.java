@@ -37,38 +37,41 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
-            // Disable CSRF (JWt is enough)
-            .csrf(AbstractHttpConfigurer::disable)
+                // Disable CSRF (JWt is enough)
+                .csrf(AbstractHttpConfigurer::disable)
 
-            // CORS
-            .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+                // CORS
+                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
 
-            // Stateless — no server-side sessions
-            .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                // Session management:
+                // OAuth2 login REQUIRES a session to store the state parameter between
+                // the authorization request and the callback — so we use IF_REQUIRED.
+                // JWT still handles API authentication; sessions are only used for OAuth2 handshake.
+                .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
 
-            // Public vs protected routes
-            .authorizeHttpRequests(auth -> auth
-                .requestMatchers(
-                    "/api/auth/register",
-                    "/api/auth/login",
-                    "/api/auth/refresh",
-                    "/api/auth/forgot-password",
-                    "/api/auth/reset-password",
-                    "/oauth2/**",
-                    "/login/oauth2/**"
-                ).permitAll()
-                .anyRequest().authenticated()
-            )
+                // Public vs protected routes
+                .authorizeHttpRequests(auth -> auth
+                        .requestMatchers(
+                                "/api/auth/register",
+                                "/api/auth/login",
+                                "/api/auth/refresh",
+                                "/api/auth/forgot-password",
+                                "/api/auth/reset-password",
+                                "/oauth2/**",
+                                "/login/oauth2/**"
+                        ).permitAll()
+                        .anyRequest().authenticated()
+                )
 
-            // Google OAuth2 login
-            .oauth2Login(oauth -> oauth
-                .authorizationEndpoint(a -> a.baseUri("/oauth2/authorize"))
-                .redirectionEndpoint(r -> r.baseUri("/oauth2/callback/*"))
-                .successHandler(oAuthHandler)
-            )
+                // Google OAuth2 login
+                .oauth2Login(oauth -> oauth
+                        .authorizationEndpoint(a -> a.baseUri("/oauth2/authorize"))
+                        .redirectionEndpoint(r -> r.baseUri("/oauth2/callback/*"))
+                        .successHandler(oAuthHandler)
+                )
 
-            // JWT filter runs before Spring's auth filter
-            .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
+                // JWT filter runs before Spring's auth filter
+                .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }
