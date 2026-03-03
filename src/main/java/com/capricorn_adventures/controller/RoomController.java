@@ -13,7 +13,7 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/rooms")
-@CrossOrigin(origins = "*") // Adjust origin as needed for your frontend
+@CrossOrigin(origins = "*") 
 public class RoomController {
 
     private final RoomService roomService;

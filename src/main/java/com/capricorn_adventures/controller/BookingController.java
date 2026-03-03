@@ -10,7 +10,7 @@ import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/bookings")
-@CrossOrigin(origins = "*") // Adjust origin as needed for your frontend
+@CrossOrigin(origins = "*") 
 public class BookingController {
 
     private final BookingService bookingService;
