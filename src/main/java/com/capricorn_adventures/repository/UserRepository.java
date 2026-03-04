@@ -1,6 +1,6 @@
 package com.capricorn_adventures.repository;
 
-import com.capricorn_adventures.User;
+import com.capricorn_adventures.entity.User;
 import org.springframework.data.jpa.repository.JpaRepository;
 import java.util.Optional;
 import java.util.UUID;

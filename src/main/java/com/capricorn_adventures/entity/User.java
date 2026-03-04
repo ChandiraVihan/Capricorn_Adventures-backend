@@ -1,4 +1,4 @@
-package com.capricorn_adventures;
+package com.capricorn_adventures.entity;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
@@ -25,6 +25,12 @@ public class User {
 
     @Column(nullable = false, unique = true, length = 255)
     private String email;
+
+    @Column(name = "first_name", length = 100)
+    private String firstName;
+
+    @Column(name = "last_name", length = 100)
+    private String lastName;
 
     @Column(name = "password_hash")
     private String passwordHash; // NULL for OAuth-only users
@@ -62,9 +68,11 @@ public class User {
 
     public User() {}
 
-    public User(UUID id, String email, String passwordHash, boolean emailVerified, UserStatus status, UserRole role, int failedLoginCount, LocalDateTime lockedUntil, LocalDateTime lastLoginAt, LocalDateTime createdAt, LocalDateTime updatedAt, LocalDateTime deletedAt) {
+    public User(UUID id, String email, String firstName, String lastName, String passwordHash, boolean emailVerified, UserStatus status, UserRole role, int failedLoginCount, LocalDateTime lockedUntil, LocalDateTime lastLoginAt, LocalDateTime createdAt, LocalDateTime updatedAt, LocalDateTime deletedAt) {
         this.id = id;
         this.email = email;
+        this.firstName = firstName;
+        this.lastName = lastName;
         this.passwordHash = passwordHash;
         this.emailVerified = emailVerified;
         this.status = status;
@@ -83,6 +91,12 @@ public class User {
 
     public String getEmail() { return email; }
     public void setEmail(String email) { this.email = email; }
+
+    public String getFirstName() { return firstName; }
+    public void setFirstName(String firstName) { this.firstName = firstName; }
+
+    public String getLastName() { return lastName; }
+    public void setLastName(String lastName) { this.lastName = lastName; }
 
     public String getPasswordHash() { return passwordHash; }
     public void setPasswordHash(String passwordHash) { this.passwordHash = passwordHash; }
@@ -144,6 +158,8 @@ public class User {
     public static class UserBuilder {
         private UUID id;
         private String email;
+        private String firstName;
+        private String lastName;
         private String passwordHash;
         private boolean emailVerified = false;
         private UserStatus status = UserStatus.ACTIVE;
@@ -159,6 +175,8 @@ public class User {
 
         public UserBuilder id(UUID id) { this.id = id; return this; }
         public UserBuilder email(String email) { this.email = email; return this; }
+        public UserBuilder firstName(String firstName) { this.firstName = firstName; return this; }
+        public UserBuilder lastName(String lastName) { this.lastName = lastName; return this; }
         public UserBuilder passwordHash(String passwordHash) { this.passwordHash = passwordHash; return this; }
         public UserBuilder emailVerified(boolean emailVerified) { this.emailVerified = emailVerified; return this; }
         public UserBuilder status(UserStatus status) { this.status = status; return this; }
@@ -171,7 +189,7 @@ public class User {
         public UserBuilder deletedAt(LocalDateTime deletedAt) { this.deletedAt = deletedAt; return this; }
 
         public User build() {
-            return new User(id, email, passwordHash, emailVerified, status, role, failedLoginCount, lockedUntil, lastLoginAt, createdAt, updatedAt, deletedAt);
+            return new User(id, email, firstName, lastName, passwordHash, emailVerified, status, role, failedLoginCount, lockedUntil, lastLoginAt, createdAt, updatedAt, deletedAt);
         }
     }
 }

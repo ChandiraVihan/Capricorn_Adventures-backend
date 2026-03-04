@@ -8,6 +8,7 @@ import com.capricorn_adventures.entity.BookingStatus;
 import com.capricorn_adventures.entity.Room;
 import com.capricorn_adventures.entity.RoomImage;
 import com.capricorn_adventures.exception.ResourceNotFoundException;
+import com.capricorn_adventures.exception.BadRequestException;
 import com.capricorn_adventures.repository.BookingRepository;
 import com.capricorn_adventures.repository.RoomRepository;
 import com.capricorn_adventures.service.RoomService;
@@ -40,6 +41,10 @@ public class RoomServiceImpl implements RoomService {
 
     @Override
     public boolean isRoomAvailable(Long roomId, LocalDate checkInDate, LocalDate checkOutDate) {
+        if (!checkOutDate.isAfter(checkInDate)) {
+            throw new BadRequestException("Check-out date must be after check-in date!");
+        }
+
         // Ensure the room exists first
         if (!roomRepository.existsById(roomId)) {
             throw new ResourceNotFoundException("Room not found with ID: " + roomId);
@@ -58,6 +63,17 @@ public class RoomServiceImpl implements RoomService {
         // Additional availability logic can be appended to the DTO if you add a transient 'isAvailable' field,
         // or just rely on separate check. For now, we return the base details.
         return roomDetails;
+    }
+
+    @Override
+    public List<RoomDetailsDTO> searchRooms(LocalDate checkInDate, LocalDate checkOutDate, Integer guests) {
+        if (!checkOutDate.isAfter(checkInDate)) {
+            throw new BadRequestException("Check-out date must be after check-in date!");
+        }
+
+        List<BookingStatus> blockingStatuses = Arrays.asList(BookingStatus.CONFIRMED, BookingStatus.PENDING);
+        List<Room> rooms = roomRepository.findAvailableRooms(guests, blockingStatuses, checkInDate, checkOutDate);
+        return rooms.stream().map(this::mapToDTO).collect(Collectors.toList());
     }
 
     private RoomDetailsDTO mapToDTO(Room room) {

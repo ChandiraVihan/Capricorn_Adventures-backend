@@ -12,7 +12,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
-import com.capricorn_adventures.User;
+import com.capricorn_adventures.entity.User;
 import com.capricorn_adventures.repository.UserRepository;
 
 import jakarta.servlet.FilterChain;

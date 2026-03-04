@@ -1,4 +1,4 @@
-package com.example.us07;
+package com.capricorn_adventures.dto;
 
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;

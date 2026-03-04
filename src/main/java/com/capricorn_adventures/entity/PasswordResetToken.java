@@ -1,4 +1,4 @@
-package com.capricorn_adventures;
+package com.capricorn_adventures.entity;
 
 import jakarta.persistence.*;
 import org.hibernate.annotations.CreationTimestamp;

@@ -1,6 +1,7 @@
 package com.capricorn_adventures.controller;
 
-import com.capricorn_adventures.User;
+import com.capricorn_adventures.entity.User;
+import com.capricorn_adventures.repository.UserRepository;
 import com.capricorn_adventures.dto.*;
 import com.capricorn_adventures.service.AuthService;
 import jakarta.validation.Valid;
@@ -80,6 +81,8 @@ public class AuthController {
         return ResponseEntity.ok(Map.of(
             "id",            user.getId().toString(),
             "email",         user.getEmail(),
+            "firstName",     user.getFirstName() != null ? user.getFirstName() : "",
+            "lastName",      user.getLastName() != null ? user.getLastName() : "",
             "role",          user.getRole().name(),
             "emailVerified", user.isEmailVerified()
         ));

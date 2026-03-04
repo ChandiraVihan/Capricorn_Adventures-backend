@@ -1,6 +1,7 @@
 package com.capricorn_adventures.controller;
 
 import com.capricorn_adventures.dto.RoomDetailsDTO;
+import com.capricorn_adventures.exception.BadRequestException;
 import com.capricorn_adventures.service.RoomService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -9,6 +10,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -25,6 +27,9 @@ public class RoomController {
 
     @GetMapping("/{roomId}")
     public ResponseEntity<RoomDetailsDTO> getRoomDetails(@PathVariable Long roomId) {
+        if (roomId < 0) {
+            throw new BadRequestException("Room ID cannot be negative: " + roomId);
+        }
         RoomDetailsDTO roomDetails = roomService.getRoomDetails(roomId);
         return ResponseEntity.ok(roomDetails);
     }
@@ -44,5 +49,15 @@ public class RoomController {
         response.put("checkOutDate", checkOutDate);
         
         return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/search")
+    public ResponseEntity<List<RoomDetailsDTO>> searchRooms(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate checkIn,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate checkOut,
+            @RequestParam Integer guests) {
+        
+        List<RoomDetailsDTO> rooms = roomService.searchRooms(checkIn, checkOut, guests);
+        return ResponseEntity.ok(rooms);
     }
 }

@@ -1,7 +1,7 @@
 package com.capricorn_adventures.repository;
 
 
-import com.capricorn_adventures.PasswordResetToken;
+import com.capricorn_adventures.entity.PasswordResetToken;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;

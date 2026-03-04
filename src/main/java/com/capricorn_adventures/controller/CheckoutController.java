@@ -1,28 +1,29 @@
-package com.example.us07;
+package com.capricorn_adventures.controller;
 
+import com.capricorn_adventures.dto.GuestDetailsDTO;
+import com.capricorn_adventures.entity.Booking;
+import com.capricorn_adventures.repository.BookingRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import jakarta.validation.Valid;
 
 import java.util.Optional;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/checkout")
-@CrossOrigin
+@CrossOrigin(origins = "*")
 public class CheckoutController {
 
-    @Autowired
-    private BookingRepository bookingRepository;
+    private final BookingRepository bookingRepository;
 
-    // Create booking (Start checkout)
-    @PostMapping("/create")
-    public ResponseEntity<Booking> createBooking(@RequestBody Booking booking) {
-        booking.setStatus("PENDING");
-        return ResponseEntity.ok(bookingRepository.save(booking));
+    @Autowired
+    public CheckoutController(BookingRepository bookingRepository) {
+        this.bookingRepository = bookingRepository;
     }
 
-    // Update guest details
+    // Update guest details for a pending booking
     @PutMapping("/{id}/guest")
     public ResponseEntity<?> updateGuest(
             @PathVariable Long id,
@@ -57,16 +58,21 @@ public class CheckoutController {
         }
 
         Booking booking = optionalBooking.get();
-
-        if(paymentSuccess) {
-            booking.setStatus("CONFIRMED");
-            booking.generateReference();
-        } else {
-            booking.setStatus("FAILED");
+        if (booking.getStatus() == com.capricorn_adventures.entity.BookingStatus.CONFIRMED) {
+             return ResponseEntity.badRequest().body("Booking is already confirmed");
         }
 
-        bookingRepository.save(booking);
-
-        return ResponseEntity.ok(booking);
+        if(paymentSuccess) {
+            booking.setStatus(com.capricorn_adventures.entity.BookingStatus.CONFIRMED);
+            String reference = "CAP-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
+            booking.setReferenceId(reference);
+            bookingRepository.save(booking);
+            return ResponseEntity.ok(booking);
+        } else {
+            // We don't necessarily CANCEL it immediately to allow retry, but let's follow the simple mock
+            booking.setStatus(com.capricorn_adventures.entity.BookingStatus.CANCELLED);
+            bookingRepository.save(booking);
+            return ResponseEntity.badRequest().body("Payment failed. Please try again.");
+        }
     }
 }

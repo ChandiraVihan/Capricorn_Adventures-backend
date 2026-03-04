@@ -17,9 +17,9 @@ import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
-import com.capricorn_adventures.PasswordResetToken;
-import com.capricorn_adventures.User;
+import com.capricorn_adventures.dto.*;
+import com.capricorn_adventures.entity.PasswordResetToken;
+import com.capricorn_adventures.entity.User;
 import com.capricorn_adventures.repository.PasswordResetTokenRepository;
 import com.capricorn_adventures.repository.UserRepository;
 import com.capricorn_adventures.security.JwtUtil;
@@ -60,10 +60,14 @@ public class AuthService {
 
         User user = User.builder()
             .email(email.toLowerCase().trim())
+            .firstName(firstName)
+            .lastName(lastName)
             .passwordHash(passwordEncoder.encode(password))
             .build();
         user = userRepository.save(user);
-
+        
+        sendWelcomeEmail(user.getEmail(), firstName);
+        
         // TODO: send verification email (email must be verified)
         log.info("New user registered: {}", email);
 
@@ -187,6 +191,8 @@ public class AuthService {
         Map<String, Object> userInfo = new HashMap<>();
         userInfo.put("id",            user.getId().toString());
         userInfo.put("email",         user.getEmail());
+        userInfo.put("firstName",     user.getFirstName());
+        userInfo.put("lastName",      user.getLastName());
         userInfo.put("role",          user.getRole().name());
         userInfo.put("emailVerified", user.isEmailVerified());
 
@@ -226,6 +232,21 @@ public class AuthService {
             "Click the link below to set a new password (valid for 1 hour):\n\n" +
             resetLink + "\n\n" +
             "If you didn't request this, please ignore this email.\n\n" +
+            "— Capricorn Adventures Team"
+        );
+        mailSender.send(message);
+    }
+
+    private void sendWelcomeEmail(String to, String firstName) {
+        SimpleMailMessage message = new SimpleMailMessage();
+        message.setTo(to);
+        message.setSubject("Welcome to Capricorn Adventures!");
+        message.setText(
+            "Hi " + firstName + ",\n\n" +
+            "Welcome to Capricorn Adventures! We're thrilled to have you join our community.\n\n" +
+            "You can now sign in to explore our curated hotel collections and plan your next adventure.\n\n" +
+            "If you have any questions, just reply to this email.\n\n" +
+            "Happy exploring!\n\n" +
             "— Capricorn Adventures Team"
         );
         mailSender.send(message);

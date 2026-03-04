@@ -19,16 +19,19 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import com.capricorn_adventures.security.JwtFilter;
 import com.capricorn_adventures.security.OAuthHandler;
+import com.capricorn_adventures.security.OAuthFailureHandler;
 
 @Configuration
 public class SecurityConfig {
 
     private final JwtFilter jwtFilter;
     private final OAuthHandler oAuthHandler;
+    private final OAuthFailureHandler oAuthFailureHandler;
 
-    public SecurityConfig(JwtFilter jwtFilter, OAuthHandler oAuthHandler) {
+    public SecurityConfig(JwtFilter jwtFilter, OAuthHandler oAuthHandler, OAuthFailureHandler oAuthFailureHandler) {
         this.jwtFilter = jwtFilter;
         this.oAuthHandler = oAuthHandler;
+        this.oAuthFailureHandler = oAuthFailureHandler;
     }
 
     @Value("${app.cors.allowed-origins}")
@@ -65,6 +68,7 @@ public class SecurityConfig {
                 .authorizationEndpoint(a -> a.baseUri("/oauth2/authorize"))
                 .redirectionEndpoint(r -> r.baseUri("/oauth2/callback/*"))
                 .successHandler(oAuthHandler)
+                .failureHandler(oAuthFailureHandler)
             )
 
             // JWT filter runs before Spring's auth filter

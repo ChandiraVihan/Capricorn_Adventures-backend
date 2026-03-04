@@ -12,8 +12,8 @@ import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.security.web.authentication.SimpleUrlAuthenticationSuccessHandler;
 import org.springframework.stereotype.Component;
 
-import com.capricorn_adventures.OAuth;
-import com.capricorn_adventures.User;
+import com.capricorn_adventures.entity.OAuth;
+import com.capricorn_adventures.entity.User;
 import com.capricorn_adventures.repository.OAuthRepository;
 import com.capricorn_adventures.repository.UserRepository;
 

@@ -25,9 +25,45 @@ public class Booking {
     @JoinColumn(name = "room_id", nullable = false)
     private Room room;
 
-    
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id")
+    private User user;
+
+    @Column(length = 255)
+    private String guestName;
+
+    @Column(length = 255)
+    private String guestEmail;
+
+    @Column(length = 20)
+    private String guestPhone;
+
+    @Column(nullable = false)
+    private java.math.BigDecimal totalPrice;
+
+    @Column(length = 20, unique = true)
+    private String referenceId;
+
     public Booking() {
     }
+
+    // Getters and setters
+    public User getUser() { return user; }
+    public void setUser(User user) { this.user = user; }
+
+    public String getReferenceId() { return referenceId; }
+    public void setReferenceId(String referenceId) { this.referenceId = referenceId; }
+    public String getGuestName() { return guestName; }
+    public void setGuestName(String guestName) { this.guestName = guestName; }
+
+    public String getGuestEmail() { return guestEmail; }
+    public void setGuestEmail(String guestEmail) { this.guestEmail = guestEmail; }
+
+    public String getGuestPhone() { return guestPhone; }
+    public void setGuestPhone(String guestPhone) { this.guestPhone = guestPhone; }
+
+    public java.math.BigDecimal getTotalPrice() { return totalPrice; }
+    public void setTotalPrice(java.math.BigDecimal totalPrice) { this.totalPrice = totalPrice; }
     // Getters and setters
     public Long getId() {       
         return id;
