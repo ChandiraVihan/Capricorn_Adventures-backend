@@ -31,3 +31,10 @@ build/
 
 ### VS Code ###
 .vscode/
+
+### Local runtime/config ###
+*.log
+.env
+.env.*
+!.env.example
+out/
