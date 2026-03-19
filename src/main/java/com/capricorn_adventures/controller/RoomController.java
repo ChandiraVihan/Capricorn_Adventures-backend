@@ -1,8 +1,12 @@
 package com.capricorn_adventures.controller;
 
 import com.capricorn_adventures.dto.RoomDetailsDTO;
+import com.capricorn_adventures.dto.RoomResponse;
+import com.capricorn_adventures.dto.RoomSearchRequest;
 import com.capricorn_adventures.exception.BadRequestException;
+import com.capricorn_adventures.service.RoomSearchService;
 import com.capricorn_adventures.service.RoomService;
+import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
@@ -14,15 +18,17 @@ import java.util.List;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/api/rooms")
-@CrossOrigin(origins = "*") 
+@RequestMapping("/api/v1/rooms")
+@CrossOrigin(origins = "*")
 public class RoomController {
 
     private final RoomService roomService;
+    private final RoomSearchService roomSearchService;
 
     @Autowired
-    public RoomController(RoomService roomService) {
+    public RoomController(RoomService roomService, RoomSearchService roomSearchService) {
         this.roomService = roomService;
+        this.roomSearchService = roomSearchService;
     }
 
     @GetMapping("/{roomId}")
@@ -39,25 +45,24 @@ public class RoomController {
             @PathVariable Long roomId,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate checkInDate,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate checkOutDate) {
-        
+
         boolean isAvailable = roomService.isRoomAvailable(roomId, checkInDate, checkOutDate);
-        
+
         Map<String, Object> response = new HashMap<>();
         response.put("roomId", roomId);
         response.put("isAvailable", isAvailable);
         response.put("checkInDate", checkInDate);
         response.put("checkOutDate", checkOutDate);
-        
+
         return ResponseEntity.ok(response);
     }
 
     @GetMapping("/search")
-    public ResponseEntity<List<RoomDetailsDTO>> searchRooms(
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate checkIn,
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate checkOut,
-            @RequestParam Integer guests) {
-        
-        List<RoomDetailsDTO> rooms = roomService.searchRooms(checkIn, checkOut, guests);
+    public ResponseEntity<List<RoomResponse>> searchRooms(
+            @Valid @ModelAttribute RoomSearchRequest request) {
+
+        List<RoomResponse> rooms = roomSearchService.searchAvailableRooms(
+                request.getCheckIn(), request.getCheckOut(), request.getGuests());
         return ResponseEntity.ok(rooms);
     }
 }
