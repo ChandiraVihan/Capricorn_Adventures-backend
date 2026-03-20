@@ -21,7 +21,10 @@ import com.capricorn_adventures.security.JwtFilter;
 import com.capricorn_adventures.security.OAuthHandler;
 import com.capricorn_adventures.security.OAuthFailureHandler;
 
+import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+
 @Configuration
+@EnableWebSecurity
 public class SecurityConfig {
 
     private final JwtFilter jwtFilter;
@@ -57,10 +60,12 @@ public class SecurityConfig {
                     "/api/auth/refresh",
                     "/api/auth/forgot-password",
                     "/api/auth/reset-password",
+                    "/api/v1/rooms/search",
+                    "/api/v1/rooms/**",
                     "/oauth2/**",
                     "/login/oauth2/**"
                 ).permitAll()
-                .anyRequest().authenticated()
+                .anyRequest().permitAll()
             )
 
             // Google OAuth2 login

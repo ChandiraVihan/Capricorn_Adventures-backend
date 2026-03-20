@@ -1,46 +1,40 @@
 package com.capricorn_adventures.service.impl;
 
+import com.capricorn_adventures.dto.RoomDetailsDTO;
 import com.capricorn_adventures.dto.RoomResponse;
 import com.capricorn_adventures.service.RoomSearchService;
+import com.capricorn_adventures.service.RoomService;
 import org.springframework.stereotype.Service;
 
-import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 public class RoomSearchServiceImpl implements RoomSearchService {
 
+    private final RoomService roomService;
+
+    public RoomSearchServiceImpl(RoomService roomService) {
+        this.roomService = roomService;
+    }
+
     @Override
     public List<RoomResponse> searchAvailableRooms(LocalDate checkIn, LocalDate checkOut, int guests) {
-        // Simulate "No Availability" when guests is exactly 5
-        if (guests == 5) {
-            return Collections.emptyList();
-        }
+        // Delegate to RoomService to perform database-backed search
+        List<RoomDetailsDTO> availableRooms = roomService.searchRooms(checkIn, checkOut, guests);
 
-        // Return hardcoded mock data
-        List<RoomResponse> rooms = new ArrayList<>();
+        // Map RoomDetailsDTO to RoomResponse
+        return availableRooms.stream()
+                .map(this::mapToRoomResponse)
+                .collect(Collectors.toList());
+    }
 
-        rooms.add(new RoomResponse(
-                "Deluxe Suite",
-                "Spacious suite with king-size bed, ocean view balcony, and private jacuzzi.",
-                new BigDecimal("350.00")
-        ));
-
-        rooms.add(new RoomResponse(
-                "Standard Room",
-                "Comfortable room with queen-size bed, city view, and complimentary Wi-Fi.",
-                new BigDecimal("150.00")
-        ));
-
-        rooms.add(new RoomResponse(
-                "Family Villa",
-                "Two-bedroom villa with living area, kitchenette, and garden access. Ideal for families.",
-                new BigDecimal("500.00")
-        ));
-
-        return rooms;
+    private RoomResponse mapToRoomResponse(RoomDetailsDTO dto) {
+        return new RoomResponse(
+                dto.getName(),
+                dto.getDescription(),
+                dto.getBasePrice()
+        );
     }
 }

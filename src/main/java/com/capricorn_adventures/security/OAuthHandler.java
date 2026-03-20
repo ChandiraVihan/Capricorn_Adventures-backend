@@ -20,6 +20,8 @@ import com.capricorn_adventures.repository.UserRepository;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
+import org.springframework.transaction.annotation.Transactional;
+
 @Component
 public class OAuthHandler extends SimpleUrlAuthenticationSuccessHandler {
 
@@ -43,6 +45,7 @@ public class OAuthHandler extends SimpleUrlAuthenticationSuccessHandler {
     private String frontendUrl;
 
     @Override
+    @Transactional
     public void onAuthenticationSuccess(HttpServletRequest request,
                                         HttpServletResponse response,
                                         Authentication authentication) throws IOException {
@@ -54,19 +57,36 @@ public class OAuthHandler extends SimpleUrlAuthenticationSuccessHandler {
         String name           = oAuth2User.getAttribute("name");
         String picture        = oAuth2User.getAttribute("picture");
 
+        if (providerUserId == null || email == null) {
+            log.error("OAuth2 attributes missing. sub: {}, email: {}", providerUserId, email);
+            throw new RuntimeException("Required OAuth2 attributes (sub/email) missing from Google.");
+        }
+
         // 1. Check if OAuth account already exists
+        // Use JOIN FETCH to avoid lazy loading issues with the linked User
         OAuth oauth = oAuthRepository
-            .findByProviderAndProviderUserId(OAuth.Provider.GOOGLE, providerUserId)
+            .findWithUserByProviderAndProviderUserId(OAuth.Provider.GOOGLE, providerUserId)
             .orElse(null);
 
         User user;
 
         if (oauth != null) {
-            // Existing Google user — just log in
+            // Existing Google user. The user object is already joined and loaded.
             user = oauth.getUser();
-            log.info("Existing OAuth user logged in: {}", email);
+            log.info("Existing OAuth user logged in: {} (ID: {})", email, user.getId());
+            
+            // Sync email if changed on Google and not already taken
+            if (!user.getEmail().equalsIgnoreCase(email)) {
+                log.info("Updating user {} email from {} to {}", user.getId(), user.getEmail(), email);
+                if (!userRepository.existsByEmail(email)) {
+                    user.setEmail(email);
+                    user = userRepository.save(user);
+                } else {
+                    log.warn("Cannot update email to {} as it's already taken by another user", email);
+                }
+            }
         } else {
-            // New Google user — check if email already registered
+            // New Google connection — check if email already registered
             user = userRepository.findByEmail(email).orElse(null);
 
             if (user == null) {
@@ -74,9 +94,12 @@ public class OAuthHandler extends SimpleUrlAuthenticationSuccessHandler {
                 user = User.builder()
                     .email(email)
                     .emailVerified(true)
+                    .role(User.UserRole.CUSTOMER)
                     .build();
                 user = userRepository.save(user);
                 log.info("New user created via Google OAuth: {}", email);
+            } else {
+                log.info("Found existing user {} by email. Linking Google account.", email);
             }
 
             // Link the Google account
@@ -89,17 +112,35 @@ public class OAuthHandler extends SimpleUrlAuthenticationSuccessHandler {
                 .avatarUrl(picture)
                 .build();
             oAuthRepository.save(newOauth);
+            log.info("Linked Google account sub:{} to user:{}", providerUserId, user.getId());
         }
 
-        // 2. Generate tokens
+        // 2. Ensure user has a role and is active before token generation
+        if (user.getRole() == null) {
+            log.warn("User {} has no role, defaulting to CUSTOMER", user.getEmail());
+            user.setRole(User.UserRole.CUSTOMER);
+            user = userRepository.save(user);
+        }
+
+        if (user.getStatus() != User.UserStatus.ACTIVE) {
+            log.error("Login attempt for non-active user: {}", user.getEmail());
+            throw new RuntimeException("Account is not active (" + user.getStatus() + ")");
+        }
+
+        // 3. Update last login time
+        user.setLastLoginAt(java.time.LocalDateTime.now());
+        userRepository.save(user);
+
+        // 4. Generate tokens
         String accessToken  = jwtUtil.generateAccessToken(user.getId(), user.getEmail(), user.getRole().name());
         String refreshToken = jwtUtil.generateRefreshToken(user.getId());
 
-        // 3. Redirect to React frontend with tokens in URL
+        // 5. Redirect to React frontend with tokens in URL
         String redirectUrl = frontendUrl + "/oauth2/redirect"
             + "?accessToken="  + URLEncoder.encode(accessToken,  StandardCharsets.UTF_8)
             + "&refreshToken=" + URLEncoder.encode(refreshToken, StandardCharsets.UTF_8);
 
+        log.info("Redirecting user {} to frontend with JWT", user.getEmail());
         getRedirectStrategy().sendRedirect(request, response, redirectUrl);
     }
 }
