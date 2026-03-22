@@ -1,3 +1,5 @@
+package com.capricorn_adventures.service.impl;
+
 import com.capricorn_adventures.dto.BookingRequestDTO;
 import com.capricorn_adventures.entity.Booking;
 import com.capricorn_adventures.entity.BookingStatus;
@@ -10,6 +12,7 @@ import com.capricorn_adventures.repository.BookingRepository;
 import com.capricorn_adventures.repository.RoomRepository;
 import com.capricorn_adventures.repository.UserRepository;
 import com.capricorn_adventures.service.BookingService;
+import com.capricorn_adventures.service.EmailService;
 import com.capricorn_adventures.service.RoomService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.Authentication;
@@ -22,6 +25,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.security.SecureRandom;
 
 @Service
 public class BookingServiceImpl implements BookingService {
@@ -30,13 +34,19 @@ public class BookingServiceImpl implements BookingService {
     private final RoomRepository roomRepository;
     private final RoomService roomService;
     private final UserRepository userRepository;
+    private final EmailService emailService;
 
     @Autowired
-    public BookingServiceImpl(BookingRepository bookingRepository, RoomRepository roomRepository, RoomService roomService, UserRepository userRepository) {
+    public BookingServiceImpl(BookingRepository bookingRepository, 
+                          RoomRepository roomRepository, 
+                          RoomService roomService, 
+                          UserRepository userRepository,
+                          EmailService emailService) {
         this.bookingRepository = bookingRepository;
         this.roomRepository = roomRepository;
         this.roomService = roomService;
         this.userRepository = userRepository;
+        this.emailService = emailService;
     }
 
     @Override
@@ -58,7 +68,10 @@ public class BookingServiceImpl implements BookingService {
         booking.setRoom(room);
         booking.setCheckInDate(request.getCheckInDate());
         booking.setCheckOutDate(request.getCheckOutDate());
-        booking.setStatus(BookingStatus.PENDING);
+        booking.setStatus(BookingStatus.CONFIRMED); // Direct confirmation for now
+        
+        // Generate Reference ID (e.g., CAP-XXXXXX)
+        booking.setReferenceId(generateReferenceId());
 
         long nights = ChronoUnit.DAYS.between(request.getCheckInDate(), request.getCheckOutDate());
         if (nights <= 0) nights = 1;
@@ -67,20 +80,47 @@ public class BookingServiceImpl implements BookingService {
 
         // Associate with User if authenticated
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        if (auth != null && auth.isAuthenticated() && !auth.getPrincipal().equals("anonymousUser")) {
-            try {
-                // Assuming Name is the User ID (UUID) as set in JwtFilter or similar
-                UUID userId = UUID.fromString(auth.getName());
-                userRepository.findById(userId).ifPresent(booking::setUser);
-            } catch (Exception ignored) {}
+        if (auth != null && auth.isAuthenticated()) {
+            Object principal = auth.getPrincipal();
+            if (principal instanceof User) {
+                booking.setUser((User) principal);
+            } else if (!principal.equals("anonymousUser")) {
+                try {
+                    UUID userId = UUID.fromString(auth.getName());
+                    userRepository.findById(userId).ifPresent(booking::setUser);
+                } catch (Exception ignored) {
+                    // Log or handle the case where principal name is not a UUID
+                }
+            }
         }
 
-        return bookingRepository.save(booking);
+        Booking savedBooking = bookingRepository.save(booking);
+        
+        // Send Email Notification
+        emailService.sendBookingConfirmation(savedBooking);
+
+        return savedBooking;
+    }
+
+    private String generateReferenceId() {
+        String chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+        StringBuilder sb = new StringBuilder("CAP-");
+        SecureRandom random = new SecureRandom();
+        for (int i = 0; i < 6; i++) {
+            sb.append(chars.charAt(random.nextInt(chars.length())));
+        }
+        return sb.toString();
     }
 
     @Override
     public Optional<Booking> getBookingByReference(String referenceId) {
         return bookingRepository.findByReferenceId(referenceId);
+    }
+
+    @Override
+    @org.springframework.transaction.annotation.Transactional
+    public void cancelBooking(String referenceId) {
+        bookingRepository.deleteByReferenceId(referenceId);
     }
 
     @Override

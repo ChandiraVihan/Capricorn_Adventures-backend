@@ -11,4 +11,5 @@ public interface BookingService {
     Booking createBooking(BookingRequestDTO bookingRequestDTO);
     Optional<Booking> getBookingByReference(String referenceId);
     List<Booking> getUserBookings(User user);
+    void cancelBooking(String referenceId);
 }

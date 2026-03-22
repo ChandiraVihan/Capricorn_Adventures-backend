@@ -21,10 +21,8 @@ public class RoomSearchServiceImpl implements RoomSearchService {
 
     @Override
     public List<RoomResponse> searchAvailableRooms(LocalDate checkIn, LocalDate checkOut, int guests) {
-        // Delegate to RoomService to perform database-backed search
         List<RoomDetailsDTO> availableRooms = roomService.searchRooms(checkIn, checkOut, guests);
 
-        // Map RoomDetailsDTO to RoomResponse
         return availableRooms.stream()
                 .map(this::mapToRoomResponse)
                 .collect(Collectors.toList());
@@ -32,9 +30,12 @@ public class RoomSearchServiceImpl implements RoomSearchService {
 
     private RoomResponse mapToRoomResponse(RoomDetailsDTO dto) {
         return new RoomResponse(
+                dto.getId(),
                 dto.getName(),
                 dto.getDescription(),
-                dto.getBasePrice()
+                dto.getBasePrice(),
+                dto.getImages(),
+                dto.getAmenities()
         );
     }
 }
