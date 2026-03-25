@@ -19,6 +19,7 @@ public class RoomImage {
     // Links this image back to the specific Room
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "room_id", nullable = false)
+    @com.fasterxml.jackson.annotation.JsonIgnore
     private Room room;
 
     // No-argument constructor (required by JPA)

@@ -18,6 +18,10 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
 
     Optional<Booking> findByReferenceId(String referenceId);
 
+    @org.springframework.transaction.annotation.Transactional
+    @org.springframework.data.jpa.repository.Modifying
+    void deleteByReferenceId(String referenceId);
+
     List<Booking> findByUserOrderByCheckInDateDesc(User user);
 
     @Query("SELECT COUNT(b) > 0 FROM Booking b WHERE b.room.id = :roomId " +
