@@ -43,6 +43,15 @@ public class Adventure {
     @Column(nullable = true)
     private String imageUrls;
 
+    @Column(nullable = false)
+    private boolean isActive = true;
+
+    @Column(length = 2000)
+    private String itinerary;
+
+    @Column(length = 2000)
+    private String inclusions;
+
     // Getters and setters
     public Long getId() {   
         return id;
@@ -116,6 +125,30 @@ public class Adventure {
     }
     public void setImageUrls(String imageUrls) {
         this.imageUrls = imageUrls;
+    }
+
+    public boolean isActive() {
+        return isActive;
+    }
+
+    public void setActive(boolean active) {
+        isActive = active;
+    }
+
+    public String getItinerary() {
+        return itinerary;
+    }
+
+    public void setItinerary(String itinerary) {
+        this.itinerary = itinerary;
+    }
+
+    public String getInclusions() {
+        return inclusions;
+    }
+
+    public void setInclusions(String inclusions) {
+        this.inclusions = inclusions;
     }
 
 
