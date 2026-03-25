@@ -1,3 +1,5 @@
+package com.capricorn_adventures.service.impl;
+
 import com.capricorn_adventures.dto.BookingRequestDTO;
 import com.capricorn_adventures.entity.Booking;
 import com.capricorn_adventures.entity.BookingStatus;
