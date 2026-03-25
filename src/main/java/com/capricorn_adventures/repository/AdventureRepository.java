@@ -3,6 +3,7 @@ package com.capricorn_adventures.repository;
 import com.capricorn_adventures.entity.Adventure;
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -27,4 +28,13 @@ public interface AdventureRepository extends JpaRepository<Adventure, Long> {
     List<Adventure> findBrowseAdventures(@Param("categoryId") Long categoryId,
                                          @Param("minPrice") BigDecimal minPrice,
                                          @Param("maxPrice") BigDecimal maxPrice);
+
+        @Query("""
+          select distinct a
+          from Adventure a
+          left join fetch a.category c
+          left join fetch a.schedules s
+          where a.id = :adventureId
+          """)
+        Optional<Adventure> findByIdWithDetails(@Param("adventureId") Long adventureId);
 }

@@ -9,15 +9,18 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.capricorn_adventures.dto.AdventureBrowseResponseDTO;
+import com.capricorn_adventures.dto.AdventureDetailsResponseDTO;
 import com.capricorn_adventures.dto.AdventureCategoryCardDTO;
 import com.capricorn_adventures.entity.Adventure;
 import com.capricorn_adventures.entity.AdventureCategory;
 import com.capricorn_adventures.entity.AdventureSchedule;
+import com.capricorn_adventures.exception.BadRequestException;
 import com.capricorn_adventures.exception.InvalidAdventureFilterException;
 import com.capricorn_adventures.repository.AdventureCategoryCountProjection;
 import com.capricorn_adventures.repository.AdventureCategoryRepository;
 import com.capricorn_adventures.repository.AdventureRepository;
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -123,6 +126,88 @@ class AdventureBrowseServiceImplTest {
         verify(adventureRepository).findBrowseAdventures(eq(7L), eq(BigDecimal.TEN), eq(BigDecimal.valueOf(100)));
         assertEquals(1, response.getAdventures().size());
         assertEquals("Blue Ocean", response.getAdventures().get(0).getName());
+    }
+
+    @Test
+    void getAdventureDetails_returnsInactiveMessageWhenAdventureIsInactive() {
+        Adventure adventure = adventure("Whale Explorer", 3);
+        adventure.setActive(false);
+        adventure.setDifficultyLevel("Moderate");
+        adventure.setMinAge(12);
+
+        when(adventureRepository.findByIdWithDetails(11L)).thenReturn(Optional.of(adventure));
+
+        AdventureDetailsResponseDTO response = service.getAdventureDetails(11L, null, null);
+
+        assertEquals("Moderate", response.getDifficultyLevel());
+        assertEquals(12, response.getMinAge());
+        assertEquals("This adventure is no longer bookable", response.getMessage());
+        assertTrue(!response.isBookable());
+    }
+
+    @Test
+    void getAdventureDetails_marksSlotsOutsideSelectedDatesAsDisabled() {
+        Adventure adventure = adventure("Ocean Ride", 2);
+        adventure.setId(21L);
+
+        AdventureSchedule inRange = schedule(adventure, 2);
+        inRange.setId(1L);
+        inRange.setStartDate(LocalDateTime.of(2030, 1, 10, 9, 0));
+        inRange.setEndDate(LocalDateTime.of(2030, 1, 10, 11, 0));
+
+        AdventureSchedule outRange = schedule(adventure, 2);
+        outRange.setId(2L);
+        outRange.setStartDate(LocalDateTime.of(2030, 1, 15, 9, 0));
+        outRange.setEndDate(LocalDateTime.of(2030, 1, 15, 11, 0));
+
+        adventure.setSchedules(List.of(inRange, outRange));
+        when(adventureRepository.findByIdWithDetails(21L)).thenReturn(Optional.of(adventure));
+
+        AdventureDetailsResponseDTO response = service.getAdventureDetails(
+                21L,
+                LocalDate.of(2030, 1, 10),
+                LocalDate.of(2030, 1, 12)
+        );
+
+        assertEquals(2, response.getScheduleSlots().size());
+        assertTrue(response.getScheduleSlots().stream().anyMatch(s -> !s.isInSelectedRange() && s.isDisabled()));
+    }
+
+    @Test
+    void validateAdventureBooking_throwsForUnderAgeGuest() {
+        Adventure adventure = adventure("Safari", 3);
+        adventure.setMinAge(16);
+        adventure.setActive(true);
+        when(adventureRepository.findByIdWithDetails(31L)).thenReturn(Optional.of(adventure));
+
+        assertThrows(BadRequestException.class, () -> service.validateAdventureBooking(31L, 10, null));
+    }
+
+    @Test
+    void validateAdventureBooking_throwsForInactiveAdventure() {
+        Adventure adventure = adventure("Cultural Tour", 3);
+        adventure.setActive(false);
+        when(adventureRepository.findByIdWithDetails(41L)).thenReturn(Optional.of(adventure));
+
+        assertThrows(BadRequestException.class, () -> service.validateAdventureBooking(41L, 20, null));
+    }
+
+    @Test
+    void validateAdventureBooking_allowsWhenAgeAndScheduleAreValid() {
+        Adventure adventure = adventure("Lagoon", 3);
+        adventure.setId(51L);
+        adventure.setMinAge(8);
+        adventure.setActive(true);
+
+        AdventureSchedule slot = schedule(adventure, 3);
+        slot.setId(88L);
+        slot.setStartDate(LocalDateTime.of(2030, 2, 1, 10, 0));
+        slot.setEndDate(LocalDateTime.of(2030, 2, 1, 13, 0));
+        adventure.setSchedules(List.of(slot));
+
+        when(adventureRepository.findByIdWithDetails(51L)).thenReturn(Optional.of(adventure));
+
+        assertTrue(service.validateAdventureBooking(51L, 22, 88L).isAllowed());
     }
 
     private Adventure adventure(String name, int durationHours) {

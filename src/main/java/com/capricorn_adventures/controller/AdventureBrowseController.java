@@ -1,18 +1,24 @@
 package com.capricorn_adventures.controller;
 
 import com.capricorn_adventures.dto.AdventureBrowseResponseDTO;
+import com.capricorn_adventures.dto.AdventureBookingValidationRequestDTO;
+import com.capricorn_adventures.dto.AdventureBookingValidationResponseDTO;
 import com.capricorn_adventures.dto.AdventureBrowseRequestDTO;
 import com.capricorn_adventures.dto.AdventureCategoryCardDTO;
+import com.capricorn_adventures.dto.AdventureDetailsResponseDTO;
 import com.capricorn_adventures.dto.CreateAdventureCategoryRequestDTO;
 import com.capricorn_adventures.service.AdventureBrowseService;
 import jakarta.validation.Valid;
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.List;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -82,6 +88,34 @@ public class AdventureBrowseController {
                 request.getMaxPrice(),
                 request.getMinDurationHours(),
                 request.getMaxDurationHours()
+        );
+
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/adventures/{adventureId}")
+    public ResponseEntity<AdventureDetailsResponseDTO> getAdventureDetails(
+            @PathVariable Long adventureId,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate selectedFromDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate selectedToDate) {
+
+        AdventureDetailsResponseDTO response = adventureBrowseService.getAdventureDetails(
+                adventureId,
+                selectedFromDate,
+                selectedToDate
+        );
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/adventures/{adventureId}/booking-validation")
+    public ResponseEntity<AdventureBookingValidationResponseDTO> validateAdventureBooking(
+            @PathVariable Long adventureId,
+            @RequestBody AdventureBookingValidationRequestDTO request) {
+
+        AdventureBookingValidationResponseDTO response = adventureBrowseService.validateAdventureBooking(
+                adventureId,
+                request == null ? null : request.getAge(),
+                request == null ? null : request.getScheduleId()
         );
 
         return ResponseEntity.ok(response);
