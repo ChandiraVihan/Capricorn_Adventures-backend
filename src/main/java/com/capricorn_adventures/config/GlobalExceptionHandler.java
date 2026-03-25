@@ -2,6 +2,7 @@ package com.capricorn_adventures.config;
 
 import com.capricorn_adventures.exception.ResourceNotFoundException;
 import com.capricorn_adventures.exception.RoomUnavailableException;
+import com.capricorn_adventures.exception.InvalidAdventureFilterException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -40,6 +41,20 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         response.put("error", "Bad Request");
         response.put("message", ex.getMessage());
         
+        return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
+    }
+
+    /**
+     * Handle InvalidAdventureFilterException - Returns 400 Bad Request
+     */
+    @ExceptionHandler(InvalidAdventureFilterException.class)
+    public ResponseEntity<Map<String, Object>> handleInvalidAdventureFilterException(InvalidAdventureFilterException ex) {
+        Map<String, Object> response = new HashMap<>();
+        response.put("timestamp", LocalDateTime.now());
+        response.put("status", HttpStatus.BAD_REQUEST.value());
+        response.put("error", "Bad Request");
+        response.put("message", ex.getMessage());
+
         return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
     }
 

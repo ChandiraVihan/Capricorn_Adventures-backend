@@ -5,7 +5,7 @@ import com.capricorn_adventures.dto.*;
 import com.capricorn_adventures.service.AuthService;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
@@ -75,12 +75,20 @@ public class AuthController {
     // GET /api/auth/me
     // Protected - requires valid access token
     @GetMapping("/me")
-    public ResponseEntity<?> me(@AuthenticationPrincipal User user) {
-        if (user == null) return ResponseEntity.status(401).body(Map.of("error", "Not authenticated"));
+    public ResponseEntity<?> me(Authentication authentication) {
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return ResponseEntity.status(401).body(Map.of("error", "Not authenticated"));
+        }
+
+        Object principal = authentication.getPrincipal();
+        if (!(principal instanceof User user)) {
+            return ResponseEntity.status(401).body(Map.of("error", "Not authenticated"));
+        }
+
         return ResponseEntity.ok(Map.of(
             "id",            user.getId().toString(),
             "email",         user.getEmail(),
-            "role",          user.getRole().name(),
+            "role",          user.getRole() == null ? "UNKNOWN" : user.getRole().name(),
             "emailVerified", user.isEmailVerified()
         ));
     }

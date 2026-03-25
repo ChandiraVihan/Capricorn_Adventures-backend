@@ -10,6 +10,8 @@ import com.capricorn_adventures.repository.BookingRepository;
 import com.capricorn_adventures.repository.RoomRepository;
 import com.capricorn_adventures.service.BookingService;
 import com.capricorn_adventures.service.RoomService;
+import java.time.LocalDate;
+import java.util.List;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -49,5 +51,50 @@ public class BookingServiceImpl implements BookingService {
         booking.setStatus(BookingStatus.PENDING); // Assuming default is PENDING before payment
 
         return bookingRepository.save(booking);
+    }
+
+    @Override
+    @Transactional
+    public Booking confirmBooking(Long bookingId) {
+        Booking booking = bookingRepository.findById(bookingId)
+                .orElseThrow(() -> new ResourceNotFoundException("Booking not found with ID: " + bookingId));
+
+        booking.setStatus(BookingStatus.CONFIRMED);
+        return bookingRepository.save(booking);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Booking findBooking(String referenceId) {
+        Long bookingId = parseBookingId(referenceId);
+        return bookingRepository.findById(bookingId)
+                .orElseThrow(() -> new ResourceNotFoundException("Booking not found with reference: " + referenceId));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<Booking> getBookingHistory(LocalDate startDate, LocalDate endDate) {
+        if (startDate != null && endDate != null) {
+            return bookingRepository
+                    .findByCheckInDateGreaterThanEqualAndCheckOutDateLessThanEqualOrderByCheckInDateDesc(startDate, endDate);
+        }
+        return bookingRepository.findAllByOrderByCheckInDateDesc();
+    }
+
+    private Long parseBookingId(String referenceId) {
+        if (referenceId == null || referenceId.trim().isEmpty()) {
+            throw new ResourceNotFoundException("Booking reference is required");
+        }
+
+        String normalized = referenceId.trim();
+        if (normalized.toUpperCase().startsWith("BK-")) {
+            normalized = normalized.substring(3);
+        }
+
+        try {
+            return Long.parseLong(normalized);
+        } catch (NumberFormatException ex) {
+            throw new ResourceNotFoundException("Booking not found with reference: " + referenceId);
+        }
     }
 }

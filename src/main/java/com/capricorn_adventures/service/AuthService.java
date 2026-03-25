@@ -54,12 +54,14 @@ public class AuthService {
     @Transactional
     public Map<String, Object> register(String email, String password,
                                         String firstName, String lastName) {
-        if (userRepository.existsByEmail(email)) {
+        String normalizedEmail = email.toLowerCase().trim();
+
+        if (userRepository.existsByEmailIgnoreCase(normalizedEmail)) {
             throw new RuntimeException("Email already registered");
         }
 
         User user = User.builder()
-            .email(email.toLowerCase().trim())
+            .email(normalizedEmail)
             .passwordHash(passwordEncoder.encode(password))
             .build();
         user = userRepository.save(user);
@@ -73,7 +75,7 @@ public class AuthService {
     // ── LOGIN ─────────────────────────────────────────────────────
     @Transactional
     public Map<String, Object> login(String email, String password) {
-        User user = userRepository.findByEmail(email.toLowerCase().trim())
+        User user = userRepository.findByEmailIgnoreCase(email.trim())
             .orElseThrow(() -> new RuntimeException("Invalid email or password"));
 
         if (!user.isActive()) {
@@ -130,7 +132,7 @@ public class AuthService {
     // ── FORGOT PASSWORD ───────────────────────────────────────────
     @Transactional
     public void forgotPassword(String email) {
-        User user = userRepository.findByEmail(email.toLowerCase().trim())
+        User user = userRepository.findByEmailIgnoreCase(email.trim())
             .orElse(null);
 
         // Always return silently — don't reveal whether email exists
