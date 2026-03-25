@@ -17,6 +17,7 @@ import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.mail.MailException;
 import com.capricorn_adventures.dto.*;
 import com.capricorn_adventures.entity.PasswordResetToken;
 import com.capricorn_adventures.entity.User;
@@ -223,32 +224,40 @@ public class AuthService {
 
     // TODO: replace with HTML email template later
     private void sendPasswordResetEmail(String to, String resetLink) {
-        SimpleMailMessage message = new SimpleMailMessage();
-        message.setTo(to);
-        message.setSubject("Reset your Capricorn Adventures password");
-        message.setText(
-            "Hi,\n\n" +
-            "We received a request to reset your password.\n\n" +
-            "Click the link below to set a new password (valid for 1 hour):\n\n" +
-            resetLink + "\n\n" +
-            "If you didn't request this, please ignore this email.\n\n" +
-            "— Capricorn Adventures Team"
-        );
-        mailSender.send(message);
+        try {
+            SimpleMailMessage message = new SimpleMailMessage();
+            message.setTo(to);
+            message.setSubject("Reset your Capricorn Adventures password");
+            message.setText(
+                "Hi,\n\n" +
+                "We received a request to reset your password.\n\n" +
+                "Click the link below to set a new password (valid for 1 hour):\n\n" +
+                resetLink + "\n\n" +
+                "If you didn't request this, please ignore this email.\n\n" +
+                "— Capricorn Adventures Team"
+            );
+            mailSender.send(message);
+        } catch (MailException ex) {
+            log.warn("Unable to send password reset email to {}: {}", to, ex.getMessage());
+        }
     }
 
     private void sendWelcomeEmail(String to, String firstName) {
-        SimpleMailMessage message = new SimpleMailMessage();
-        message.setTo(to);
-        message.setSubject("Welcome to Capricorn Adventures!");
-        message.setText(
-            "Hi " + firstName + ",\n\n" +
-            "Welcome to Capricorn Adventures! We're thrilled to have you join our community.\n\n" +
-            "You can now sign in to explore our curated hotel collections and plan your next adventure.\n\n" +
-            "If you have any questions, just reply to this email.\n\n" +
-            "Happy exploring!\n\n" +
-            "— Capricorn Adventures Team"
-        );
-        mailSender.send(message);
+        try {
+            SimpleMailMessage message = new SimpleMailMessage();
+            message.setTo(to);
+            message.setSubject("Welcome to Capricorn Adventures!");
+            message.setText(
+                "Hi " + firstName + ",\n\n" +
+                "Welcome to Capricorn Adventures! We're thrilled to have you join our community.\n\n" +
+                "You can now sign in to explore our curated hotel collections and plan your next adventure.\n\n" +
+                "If you have any questions, just reply to this email.\n\n" +
+                "Happy exploring!\n\n" +
+                "— Capricorn Adventures Team"
+            );
+            mailSender.send(message);
+        } catch (MailException ex) {
+            log.warn("Unable to send welcome email to {}: {}", to, ex.getMessage());
+        }
     }
 }
