@@ -35,7 +35,8 @@ public class PaymentController {
 
     @PostMapping("/notify")
     public ResponseEntity<Void> handlePaymentNotification(@ModelAttribute PaymentNotifyRequest request) {
-        // 1. Verify the 'md5sig' sent by PayHere using your Secret
+        // Verify the 'md5sig' sent by PayHere using  Secret
+
         // md5sig = MD5(merchant_id + order_id + payhere_amount + payhere_currency + status_code + MD5(merchant_secret).toUpperCase()).toUpperCase()
 
         String secretHash = PayHereUtils.getMd5(merchantSecret);
@@ -49,8 +50,8 @@ public class PaymentController {
         String expectedHash = PayHereUtils.getMd5(rawString);
 
         if (expectedHash.equalsIgnoreCase(request.getMd5sig())) {
-            // 2. If valid, update your database: order.setStatus("PAID")
-            // Note: status_code "2" means success in PayHere
+            // If valid, update  database: order.setStatus("PAID")
+            // status_code "2" means success in PayHere
             if ("2".equals(request.getStatus_code())) {
                 System.out.println("Payment Successful for Order ID: " + request.getOrder_id());
                 // TODO: Update database status to PAID
