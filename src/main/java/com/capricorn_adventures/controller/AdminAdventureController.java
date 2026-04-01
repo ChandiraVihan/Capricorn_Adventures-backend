@@ -45,4 +45,11 @@ public class AdminAdventureController {
         AdventureSchedule created = adminAdventureService.createAdventureSchedule(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(created);
     }
+
+    @DeleteMapping("/{id}")
+    @PreAuthorize("hasAuthority('ADMIN') or hasRole('ADMIN')")
+    public ResponseEntity<Void> deleteAdventure(@PathVariable Long id) {
+        adminAdventureService.deleteAdventure(id);
+        return ResponseEntity.noContent().build();
+    }
 }

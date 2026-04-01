@@ -10,4 +10,5 @@ public interface AdminAdventureService {
     Adventure createAdventure(CreateAdventureRequestDTO request);
     Adventure updateAdventure(Long id, UpdateAdventureRequestDTO request);
     AdventureSchedule createAdventureSchedule(CreateAdventureScheduleRequestDTO request);
+    void deleteAdventure(Long id);
 }
