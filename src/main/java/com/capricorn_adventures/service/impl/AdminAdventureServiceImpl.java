@@ -10,6 +10,7 @@ import com.capricorn_adventures.exception.ResourceNotFoundException;
 import com.capricorn_adventures.repository.AdventureCategoryRepository;
 import com.capricorn_adventures.repository.AdventureRepository;
 import com.capricorn_adventures.repository.AdventureScheduleRepository;
+import com.capricorn_adventures.repository.AdventureCheckoutBookingRepository;
 import com.capricorn_adventures.service.AdminAdventureService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -21,14 +22,17 @@ public class AdminAdventureServiceImpl implements AdminAdventureService {
     private final AdventureRepository adventureRepository;
     private final AdventureCategoryRepository categoryRepository;
     private final AdventureScheduleRepository scheduleRepository;
+    private final AdventureCheckoutBookingRepository bookingRepository;
 
     @Autowired
     public AdminAdventureServiceImpl(AdventureRepository adventureRepository,
                                      AdventureCategoryRepository categoryRepository,
-                                     AdventureScheduleRepository scheduleRepository) {
+                                     AdventureScheduleRepository scheduleRepository,
+                                     AdventureCheckoutBookingRepository bookingRepository) {
         this.adventureRepository = adventureRepository;
         this.categoryRepository = categoryRepository;
         this.scheduleRepository = scheduleRepository;
+        this.bookingRepository = bookingRepository;
     }
 
     @Override
@@ -95,5 +99,18 @@ public class AdminAdventureServiceImpl implements AdminAdventureService {
         schedule.setStatus(request.getStatus() != null ? request.getStatus() : "AVAILABLE");
 
         return scheduleRepository.save(schedule);
+    }
+
+    @Override
+    @Transactional
+    public void deleteAdventure(Long id) {
+        if (!adventureRepository.existsById(id)) {
+            throw new ResourceNotFoundException("Adventure not found with id: " + id);
+        }
+        // First delete bookings associated with this adventure's schedules
+        bookingRepository.deleteByAdventureId(id);
+        
+        // Then delete the adventure (schedules will be deleted by CascadeType.ALL)
+        adventureRepository.deleteById(id);
     }
 }
