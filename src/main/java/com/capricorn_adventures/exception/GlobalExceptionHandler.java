@@ -25,6 +25,36 @@ public class GlobalExceptionHandler {
         return ResponseEntity.badRequest().body(body);
     }
 
+    @ExceptionHandler(RefundNotEligibleException.class)
+    public ResponseEntity<Map<String, Object>> handleRefundNotEligible(RefundNotEligibleException ex) {
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("timestamp", LocalDateTime.now().toString());
+        body.put("status", HttpStatus.BAD_REQUEST.value());
+        body.put("error", "REFUND_NOT_ELIGIBLE");
+        body.put("general", ex.getMessage());
+        return ResponseEntity.badRequest().body(body);
+    }
+
+    @ExceptionHandler(RefundProcessingException.class)
+    public ResponseEntity<Map<String, Object>> handleRefundProcessing(RefundProcessingException ex) {
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("timestamp", LocalDateTime.now().toString());
+        body.put("status", HttpStatus.INTERNAL_SERVER_ERROR.value());
+        body.put("error", "GATEWAY_ERROR");
+        body.put("general", "Refund could not be processed. Please try again or contact support.");
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(body);
+    }
+
+    @ExceptionHandler(PayHereException.class)
+    public ResponseEntity<Map<String, Object>> handlePayHereException(PayHereException ex) {
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("timestamp", LocalDateTime.now().toString());
+        body.put("status", HttpStatus.BAD_GATEWAY.value());
+        body.put("error", "PAYHERE_API_ERROR");
+        body.put("general", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.BAD_GATEWAY).body(body);
+    }
+
     @ExceptionHandler(ResourceNotFoundException.class)
     public ResponseEntity<Map<String, Object>> handleNotFound(ResourceNotFoundException ex) {
         Map<String, Object> body = new LinkedHashMap<>();
