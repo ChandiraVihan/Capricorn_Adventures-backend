@@ -23,6 +23,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
+import com.capricorn_adventures.service.DistanceMockService;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -39,11 +40,14 @@ class AdventureBrowseServiceImplTest {
     @Mock
     private AdventureCategoryRepository adventureCategoryRepository;
 
+    @Mock
+    private DistanceMockService distanceMockService;
+
     private AdventureBrowseServiceImpl service;
 
     @BeforeEach
     void setUp() {
-        service = new AdventureBrowseServiceImpl(adventureRepository, adventureCategoryRepository);
+        service = new AdventureBrowseServiceImpl(adventureRepository, adventureCategoryRepository, distanceMockService);
     }
 
     @Test
@@ -70,7 +74,8 @@ class AdventureBrowseServiceImplTest {
         when(adventureCategoryRepository.findSuggestedCategories(1L))
                 .thenReturn(List.of(projection(2L, "Safari", "safari.jpg", 5L)));
 
-        AdventureBrowseResponseDTO response = service.browseAdventures(1L, null, null, null, null, null);
+        AdventureBrowseResponseDTO response = service.browseAdventures(1L, null, null, null, null, null, null, null,
+                null, null);
 
         assertTrue(response.isEmptyState());
         assertEquals("No adventures available", response.getMessage());
@@ -87,7 +92,8 @@ class AdventureBrowseServiceImplTest {
         when(adventureRepository.findBrowseAdventures(null, null, null))
                 .thenReturn(List.of(shortTrip, mediumTrip));
 
-        AdventureBrowseResponseDTO response = service.browseAdventures(null, null, null, null, 3, 5);
+        AdventureBrowseResponseDTO response = service.browseAdventures(null, null, null, null, 3, 5, null, null, null,
+                null);
 
         assertEquals(1, response.getAdventures().size());
         assertEquals("Medium Trip", response.getAdventures().get(0).getName());
@@ -99,8 +105,7 @@ class AdventureBrowseServiceImplTest {
     void browseAdventures_withInvalidDurationRange_throwsException() {
         assertThrows(
                 InvalidAdventureFilterException.class,
-                () -> service.browseAdventures(null, null, null, null, 6, 3)
-        );
+                () -> service.browseAdventures(null, null, null, null, 6, 3, null, null, null, null));
     }
 
     @Test
@@ -120,8 +125,11 @@ class AdventureBrowseServiceImplTest {
                 BigDecimal.TEN,
                 BigDecimal.valueOf(100),
                 null,
-                null
-        );
+                null,
+                null,
+                null,
+                null,
+                null);
 
         verify(adventureRepository).findBrowseAdventures(eq(7L), eq(BigDecimal.TEN), eq(BigDecimal.valueOf(100)));
         assertEquals(1, response.getAdventures().size());
@@ -166,8 +174,7 @@ class AdventureBrowseServiceImplTest {
         AdventureDetailsResponseDTO response = service.getAdventureDetails(
                 21L,
                 LocalDate.of(2030, 1, 10),
-                LocalDate.of(2030, 1, 12)
-        );
+                LocalDate.of(2030, 1, 12));
 
         assertEquals(2, response.getScheduleSlots().size());
         assertTrue(response.getScheduleSlots().stream().anyMatch(s -> !s.isInSelectedRange() && s.isDisabled()));

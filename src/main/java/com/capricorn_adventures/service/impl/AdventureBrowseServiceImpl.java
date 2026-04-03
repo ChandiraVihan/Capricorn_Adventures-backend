@@ -26,6 +26,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.stream.Collectors;
+import com.capricorn_adventures.service.DistanceMockService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -36,17 +37,21 @@ public class AdventureBrowseServiceImpl implements AdventureBrowseService {
 
     private final AdventureRepository adventureRepository;
     private final AdventureCategoryRepository adventureCategoryRepository;
+    private final DistanceMockService distanceMockService;
 
     @Autowired
     public AdventureBrowseServiceImpl(AdventureRepository adventureRepository,
-                                      AdventureCategoryRepository adventureCategoryRepository) {
+            AdventureCategoryRepository adventureCategoryRepository,
+            DistanceMockService distanceMockService) {
         this.adventureRepository = adventureRepository;
         this.adventureCategoryRepository = adventureCategoryRepository;
+        this.distanceMockService = distanceMockService;
     }
 
     @Override
     public List<AdventureCategoryCardDTO> getAdventureCategories() {
-        List<AdventureCategoryCountProjection> categories = adventureCategoryRepository.findActiveCategoriesWithAdventureCounts();
+        List<AdventureCategoryCountProjection> categories = adventureCategoryRepository
+                .findActiveCategoriesWithAdventureCounts();
         return categories.stream().map(this::mapCategoryProjection).collect(Collectors.toList());
     }
 
@@ -87,11 +92,15 @@ public class AdventureBrowseServiceImpl implements AdventureBrowseService {
 
     @Override
     public AdventureBrowseResponseDTO browseAdventures(Long categoryId,
-                                                       String category,
-                                                       BigDecimal minPrice,
-                                                       BigDecimal maxPrice,
-                                                       Integer minDurationHours,
-                                                       Integer maxDurationHours) {
+            String category,
+            BigDecimal minPrice,
+            BigDecimal maxPrice,
+            Integer minDurationHours,
+            Integer maxDurationHours,
+            Double userLat,
+            Double userLng,
+            String userCity,
+            String sortBy) {
         validatePriceRange(minPrice, maxPrice);
         validateDurationRange(minDurationHours, maxDurationHours);
 
@@ -100,8 +109,30 @@ public class AdventureBrowseServiceImpl implements AdventureBrowseService {
         List<Adventure> adventures = adventureRepository.findBrowseAdventures(resolvedCategoryId, minPrice, maxPrice);
         List<Adventure> filteredAdventures = applyDurationFilter(adventures, minDurationHours, maxDurationHours);
 
+        List<AdventureSummaryDTO> dtoList = filteredAdventures.stream().map(this::mapAdventure)
+                .collect(Collectors.toList());
+
+        if (userLat != null || userLng != null || (userCity != null && !userCity.trim().isEmpty())) {
+            for (AdventureSummaryDTO dto : dtoList) {
+                DistanceMockService.DistanceResult result = distanceMockService.calculateDistance(
+                        dto.getLocation(), userLat, userLng, userCity);
+                if (result != null) {
+                    dto.setDistanceKm(result.getDistanceKm());
+                    dto.setEstimatedTravelTime(result.getEstimatedTravelTime());
+                }
+            }
+        }
+
+        if ("DISTANCE".equalsIgnoreCase(sortBy)) {
+            dtoList.sort((a, b) -> {
+                Double distA = a.getDistanceKm() != null ? a.getDistanceKm() : Double.MAX_VALUE;
+                Double distB = b.getDistanceKm() != null ? b.getDistanceKm() : Double.MAX_VALUE;
+                return distA.compareTo(distB);
+            });
+        }
+
         AdventureBrowseResponseDTO response = new AdventureBrowseResponseDTO();
-        response.setAdventures(filteredAdventures.stream().map(this::mapAdventure).collect(Collectors.toList()));
+        response.setAdventures(dtoList);
         response.setEmptyState(filteredAdventures.isEmpty());
         response.setAppliedFilters(buildAppliedFilters(
                 resolvedCategoryId,
@@ -109,8 +140,7 @@ public class AdventureBrowseServiceImpl implements AdventureBrowseService {
                 minPrice,
                 maxPrice,
                 minDurationHours,
-                maxDurationHours
-        ));
+                maxDurationHours));
 
         if (filteredAdventures.isEmpty()) {
             response.setMessage("No adventures available");
@@ -122,8 +152,8 @@ public class AdventureBrowseServiceImpl implements AdventureBrowseService {
 
     @Override
     public AdventureDetailsResponseDTO getAdventureDetails(Long adventureId,
-                                                           LocalDate selectedFromDate,
-                                                           LocalDate selectedToDate) {
+            LocalDate selectedFromDate,
+            LocalDate selectedToDate) {
         validateSelectedDateRange(selectedFromDate, selectedToDate);
 
         Adventure adventure = adventureRepository.findByIdWithDetails(adventureId)
@@ -132,10 +162,10 @@ public class AdventureBrowseServiceImpl implements AdventureBrowseService {
         List<AdventureDetailsResponseDTO.ScheduleSlotDTO> scheduleSlots = mapScheduleSlots(
                 adventure,
                 selectedFromDate,
-                selectedToDate
-        );
+                selectedToDate);
 
-        boolean hasAvailableSlots = scheduleSlots.stream().anyMatch(AdventureDetailsResponseDTO.ScheduleSlotDTO::isAvailable);
+        boolean hasAvailableSlots = scheduleSlots.stream()
+                .anyMatch(AdventureDetailsResponseDTO.ScheduleSlotDTO::isAvailable);
         boolean bookable = adventure.isActive() && hasAvailableSlots;
 
         AdventureDetailsResponseDTO response = new AdventureDetailsResponseDTO();
@@ -153,14 +183,15 @@ public class AdventureBrowseServiceImpl implements AdventureBrowseService {
         response.setActive(adventure.isActive());
         response.setBookable(bookable);
         response.setScheduleSlots(scheduleSlots);
-        response.setMessage(buildDetailsMessage(adventure.isActive(), hasAvailableSlots, selectedFromDate, selectedToDate));
+        response.setMessage(
+                buildDetailsMessage(adventure.isActive(), hasAvailableSlots, selectedFromDate, selectedToDate));
         return response;
     }
 
     @Override
     public AdventureBookingValidationResponseDTO validateAdventureBooking(Long adventureId,
-                                                                          Integer age,
-                                                                          Long scheduleId) {
+            Integer age,
+            Long scheduleId) {
         if (age == null || age < 0) {
             throw new BadRequestException("A valid age is required to book this adventure");
         }
@@ -180,7 +211,8 @@ public class AdventureBrowseServiceImpl implements AdventureBrowseService {
         if (scheduleId != null) {
             targetSchedule = adventure.getSchedules() == null
                     ? null
-                    : adventure.getSchedules().stream().filter(s -> scheduleId.equals(s.getId())).findFirst().orElse(null);
+                    : adventure.getSchedules().stream().filter(s -> scheduleId.equals(s.getId())).findFirst()
+                            .orElse(null);
             if (targetSchedule == null) {
                 throw new BadRequestException("Selected schedule does not belong to this adventure");
             }
@@ -227,8 +259,8 @@ public class AdventureBrowseServiceImpl implements AdventureBrowseService {
     }
 
     private List<Adventure> applyDurationFilter(List<Adventure> adventures,
-                                                Integer minDurationHours,
-                                                Integer maxDurationHours) {
+            Integer minDurationHours,
+            Integer maxDurationHours) {
         if (minDurationHours == null && maxDurationHours == null) {
             return adventures;
         }
@@ -242,8 +274,8 @@ public class AdventureBrowseServiceImpl implements AdventureBrowseService {
     }
 
     private boolean hasMatchingScheduleDuration(Adventure adventure,
-                                                long minDurationMinutes,
-                                                long maxDurationMinutes) {
+            long minDurationMinutes,
+            long maxDurationMinutes) {
         if (adventure.getSchedules() == null || adventure.getSchedules().isEmpty()) {
             return false;
         }
@@ -253,7 +285,8 @@ public class AdventureBrowseServiceImpl implements AdventureBrowseService {
                 .filter(schedule -> "AVAILABLE".equalsIgnoreCase(schedule.getStatus()))
                 .filter(schedule -> schedule.getAvailableSlots() != null && schedule.getAvailableSlots() > 0)
                 .mapToLong(schedule -> Duration.between(schedule.getStartDate(), schedule.getEndDate()).toMinutes())
-                .anyMatch(durationMinutes -> durationMinutes >= minDurationMinutes && durationMinutes <= maxDurationMinutes);
+                .anyMatch(durationMinutes -> durationMinutes >= minDurationMinutes
+                        && durationMinutes <= maxDurationMinutes);
     }
 
     private Long resolveCategoryId(Long categoryId, String category) {
@@ -271,7 +304,8 @@ public class AdventureBrowseServiceImpl implements AdventureBrowseService {
 
         String trimmedCategory = category.trim();
 
-        Optional<AdventureCategory> exactNameMatch = adventureCategoryRepository.findActiveByCategoryName(trimmedCategory);
+        Optional<AdventureCategory> exactNameMatch = adventureCategoryRepository
+                .findActiveByCategoryName(trimmedCategory);
         if (exactNameMatch.isPresent()) {
             return exactNameMatch.get().getId();
         }
@@ -320,11 +354,11 @@ public class AdventureBrowseServiceImpl implements AdventureBrowseService {
     }
 
     private AdventureBrowseResponseDTO.AppliedFilters buildAppliedFilters(Long categoryId,
-                                                                          String category,
-                                                                          BigDecimal minPrice,
-                                                                          BigDecimal maxPrice,
-                                                                          Integer minDurationHours,
-                                                                          Integer maxDurationHours) {
+            String category,
+            BigDecimal minPrice,
+            BigDecimal maxPrice,
+            Integer minDurationHours,
+            Integer maxDurationHours) {
         AdventureBrowseResponseDTO.AppliedFilters appliedFilters = new AdventureBrowseResponseDTO.AppliedFilters();
         appliedFilters.setCategoryId(categoryId);
         appliedFilters.setCategory(category);
@@ -348,8 +382,8 @@ public class AdventureBrowseServiceImpl implements AdventureBrowseService {
     }
 
     private List<AdventureDetailsResponseDTO.ScheduleSlotDTO> mapScheduleSlots(Adventure adventure,
-                                                                                LocalDate selectedFromDate,
-                                                                                LocalDate selectedToDate) {
+            LocalDate selectedFromDate,
+            LocalDate selectedToDate) {
         if (adventure.getSchedules() == null) {
             return List.of();
         }
@@ -365,10 +399,10 @@ public class AdventureBrowseServiceImpl implements AdventureBrowseService {
     }
 
     private AdventureDetailsResponseDTO.ScheduleSlotDTO mapScheduleSlot(AdventureSchedule schedule,
-                                                                        boolean adventureActive,
-                                                                        LocalDate selectedFromDate,
-                                                                        LocalDate selectedToDate,
-                                                                        LocalDateTime now) {
+            boolean adventureActive,
+            LocalDate selectedFromDate,
+            LocalDate selectedToDate,
+            LocalDateTime now) {
         boolean inSelectedRange = isInSelectedRange(schedule, selectedFromDate, selectedToDate);
         boolean available = isScheduleBookable(schedule, adventureActive && inSelectedRange, now);
 
@@ -385,7 +419,8 @@ public class AdventureBrowseServiceImpl implements AdventureBrowseService {
         return dto;
     }
 
-    private boolean isInSelectedRange(AdventureSchedule schedule, LocalDate selectedFromDate, LocalDate selectedToDate) {
+    private boolean isInSelectedRange(AdventureSchedule schedule, LocalDate selectedFromDate,
+            LocalDate selectedToDate) {
         if (selectedFromDate == null && selectedToDate == null) {
             return true;
         }
@@ -423,9 +458,9 @@ public class AdventureBrowseServiceImpl implements AdventureBrowseService {
     }
 
     private String resolveDisabledReason(AdventureSchedule schedule,
-                                         boolean adventureActive,
-                                         boolean inSelectedRange,
-                                         LocalDateTime now) {
+            boolean adventureActive,
+            boolean inSelectedRange,
+            LocalDateTime now) {
         if (!adventureActive) {
             return "ADVENTURE_INACTIVE";
         }
@@ -474,9 +509,9 @@ public class AdventureBrowseServiceImpl implements AdventureBrowseService {
     }
 
     private String buildDetailsMessage(boolean adventureActive,
-                                       boolean hasAvailableSlots,
-                                       LocalDate selectedFromDate,
-                                       LocalDate selectedToDate) {
+            boolean hasAvailableSlots,
+            LocalDate selectedFromDate,
+            LocalDate selectedToDate) {
         if (!adventureActive) {
             return "This adventure is no longer bookable";
         }
