@@ -134,13 +134,30 @@ public class AdventureBrowseServiceImpl implements AdventureBrowseService {
         AdventureBrowseResponseDTO response = new AdventureBrowseResponseDTO();
         response.setAdventures(dtoList);
         response.setEmptyState(filteredAdventures.isEmpty());
+
+        if (userLat != null || userLng != null || (userCity != null && !userCity.trim().isEmpty())) {
+            String resolvedLocation;
+            if (userLat != null && userLng != null) {
+                resolvedLocation = userLat + "," + userLng;
+            } else if (userCity != null && !userCity.trim().isEmpty()) {
+                resolvedLocation = userCity;
+            } else {
+                resolvedLocation = (userLat != null ? String.valueOf(userLat) : String.valueOf(userLng));
+            }
+            response.setResolvedLocation(resolvedLocation);
+        }
+
         response.setAppliedFilters(buildAppliedFilters(
                 resolvedCategoryId,
                 category,
                 minPrice,
                 maxPrice,
                 minDurationHours,
-                maxDurationHours));
+                maxDurationHours,
+                userLat,
+                userLng,
+                userCity,
+                sortBy));
 
         if (filteredAdventures.isEmpty()) {
             response.setMessage("No adventures available");
@@ -358,7 +375,11 @@ public class AdventureBrowseServiceImpl implements AdventureBrowseService {
             BigDecimal minPrice,
             BigDecimal maxPrice,
             Integer minDurationHours,
-            Integer maxDurationHours) {
+            Integer maxDurationHours,
+            Double userLat,
+            Double userLng,
+            String userCity,
+            String sortBy) {
         AdventureBrowseResponseDTO.AppliedFilters appliedFilters = new AdventureBrowseResponseDTO.AppliedFilters();
         appliedFilters.setCategoryId(categoryId);
         appliedFilters.setCategory(category);
@@ -366,6 +387,10 @@ public class AdventureBrowseServiceImpl implements AdventureBrowseService {
         appliedFilters.setMaxPrice(maxPrice);
         appliedFilters.setMinDurationHours(minDurationHours);
         appliedFilters.setMaxDurationHours(maxDurationHours);
+        appliedFilters.setUserLat(userLat);
+        appliedFilters.setUserLng(userLng);
+        appliedFilters.setUserCity(userCity);
+        appliedFilters.setSortBy(sortBy);
         return appliedFilters;
     }
 

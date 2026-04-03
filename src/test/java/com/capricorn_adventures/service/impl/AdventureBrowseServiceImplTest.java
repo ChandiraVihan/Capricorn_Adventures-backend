@@ -217,6 +217,88 @@ class AdventureBrowseServiceImplTest {
         assertTrue(service.validateAdventureBooking(51L, 22, 88L).isAllowed());
     }
 
+    @Test
+    void browseAdventures_withUserLatLng_populatesDistance() {
+        Adventure adventure = adventure("Test Adv", 2);
+        adventure.setLocation("Beach");
+        when(adventureRepository.findBrowseAdventures(null, null, null)).thenReturn(List.of(adventure));
+
+        DistanceMockService.DistanceResult result = new DistanceMockService.DistanceResult(10.5, "15 mins");
+        when(distanceMockService.calculateDistance("Beach", 12.3, 45.6, null)).thenReturn(result);
+
+        AdventureBrowseResponseDTO response = service.browseAdventures(null, null, null, null, null, null, 12.3, 45.6,
+                null, null);
+
+        assertEquals(1, response.getAdventures().size());
+        assertEquals(10.5, response.getAdventures().get(0).getDistanceKm());
+        assertEquals("15 mins", response.getAdventures().get(0).getEstimatedTravelTime());
+        assertEquals("12.3,45.6", response.getResolvedLocation());
+        assertEquals(12.3, response.getAppliedFilters().getUserLat());
+        assertEquals(45.6, response.getAppliedFilters().getUserLng());
+    }
+
+    @Test
+    void browseAdventures_withUserCity_populatesDistance() {
+        Adventure adventure = adventure("Test Adv", 2);
+        adventure.setLocation("Beach");
+        when(adventureRepository.findBrowseAdventures(null, null, null)).thenReturn(List.of(adventure));
+
+        DistanceMockService.DistanceResult result = new DistanceMockService.DistanceResult(20.0, "30 mins");
+        when(distanceMockService.calculateDistance("Beach", null, null, "Colombo")).thenReturn(result);
+
+        AdventureBrowseResponseDTO response = service.browseAdventures(null, null, null, null, null, null, null, null,
+                "Colombo", null);
+
+        assertEquals(1, response.getAdventures().size());
+        assertEquals(20.0, response.getAdventures().get(0).getDistanceKm());
+        assertEquals("30 mins", response.getAdventures().get(0).getEstimatedTravelTime());
+        assertEquals("Colombo", response.getResolvedLocation());
+        assertEquals("Colombo", response.getAppliedFilters().getUserCity());
+    }
+
+    @Test
+    void browseAdventures_withNoLocation_distanceIsNull() {
+        Adventure adventure = adventure("Test Adv", 2);
+        adventure.setLocation("Beach");
+        when(adventureRepository.findBrowseAdventures(null, null, null)).thenReturn(List.of(adventure));
+
+        AdventureBrowseResponseDTO response = service.browseAdventures(null, null, null, null, null, null, null, null,
+                null, null);
+
+        assertEquals(1, response.getAdventures().size());
+        assertTrue(response.getAdventures().get(0).getDistanceKm() == null);
+        assertTrue(response.getAdventures().get(0).getEstimatedTravelTime() == null);
+        assertTrue(response.getResolvedLocation() == null);
+    }
+
+    @Test
+    void browseAdventures_sortByDistance_ordersAscendingAndNullsLast() {
+        Adventure adv1 = adventure("Adv1", 2);
+        adv1.setLocation("Loc1");
+        Adventure adv2 = adventure("Adv2", 2);
+        adv2.setLocation("Loc2");
+        Adventure advEmpty = adventure("AdvEmpty", 2);
+        advEmpty.setLocation(null);
+
+        when(adventureRepository.findBrowseAdventures(null, null, null)).thenReturn(List.of(advEmpty, adv1, adv2));
+
+        when(distanceMockService.calculateDistance("Loc1", null, null, "City"))
+                .thenReturn(new DistanceMockService.DistanceResult(50.0, "1 hr"));
+        when(distanceMockService.calculateDistance("Loc2", null, null, "City"))
+                .thenReturn(new DistanceMockService.DistanceResult(10.0, "15 mins"));
+        when(distanceMockService.calculateDistance(null, null, null, "City"))
+                .thenReturn(null);
+
+        AdventureBrowseResponseDTO response = service.browseAdventures(null, null, null, null, null, null, null, null,
+                "City", "DISTANCE");
+
+        assertEquals(3, response.getAdventures().size());
+        assertEquals("Adv2", response.getAdventures().get(0).getName());
+        assertEquals("Adv1", response.getAdventures().get(1).getName());
+        assertEquals("AdvEmpty", response.getAdventures().get(2).getName());
+        assertEquals("DISTANCE", response.getAppliedFilters().getSortBy());
+    }
+
     private Adventure adventure(String name, int durationHours) {
         Adventure adventure = new Adventure();
         adventure.setId((long) name.hashCode());
