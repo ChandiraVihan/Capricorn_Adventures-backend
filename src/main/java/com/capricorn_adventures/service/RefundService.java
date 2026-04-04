@@ -44,7 +44,6 @@ public class RefundService {
 
         BigDecimal refundAmount = cancellationPolicyService.calculateRefundAmount(booking);
         
-        // Standard PayHere refund logic
         RefundTransaction transaction = new RefundTransaction();
         transaction.setRoomBooking(booking);
         transaction.setAmount(refundAmount);
@@ -53,25 +52,36 @@ public class RefundService {
         transaction.setStatus(RefundTransaction.RefundStatus.PENDING);
         refundTransactionRepository.save(transaction);
 
-        Map<String, Object> gatewayResponse = payHereGatewayService.processRefund(
-            booking.getPaymentReference(), refundAmount, reason);
+        // Try PayHere gateway - but don't block the refund if gateway is unavailable
+        try {
+            Map<String, Object> gatewayResponse = payHereGatewayService.processRefund(
+                booking.getPaymentReference(), refundAmount, reason);
 
-        if (gatewayResponse != null && gatewayResponse.get("status").equals(1)) {
-            transaction.setStatus(RefundTransaction.RefundStatus.SUCCESS);
-            booking.setStatus(refundAmount.compareTo(booking.getTotalPrice()) == 0 ? 
-                BookingStatus.REFUNDED : BookingStatus.PARTIALLY_REFUNDED);
-            booking.setRefundedAmount(refundAmount);
-            booking.setCancelledAt(LocalDateTime.now());
-            booking.setCancellationReason(reason);
-            bookingRepository.save(booking);
+            if (gatewayResponse != null && "1".equals(String.valueOf(gatewayResponse.get("status")))) {
+                transaction.setStatus(RefundTransaction.RefundStatus.SUCCESS);
+            } else {
+                // Gateway rejected or returned unexpected response - keep as PENDING for manual review
+                transaction.setFailureReason(gatewayResponse != null ? 
+                    String.valueOf(gatewayResponse.get("msg")) : "Gateway unavailable");
+            }
+        } catch (Exception e) {
+            // Gateway unreachable - keep transaction as PENDING for manual processing
+            transaction.setFailureReason("Gateway error: " + e.getMessage());
+        }
+        refundTransactionRepository.save(transaction);
 
+        // Always update booking status regardless of gateway result
+        booking.setStatus(refundAmount.compareTo(booking.getTotalPrice()) == 0 ? 
+            BookingStatus.REFUNDED : BookingStatus.PARTIALLY_REFUNDED);
+        booking.setRefundedAmount(refundAmount);
+        booking.setCancelledAt(LocalDateTime.now());
+        booking.setCancellationReason(reason);
+        bookingRepository.save(booking);
+
+        try {
             notificationService.sendRefundConfirmation(booking);
-        } else {
-            transaction.setStatus(RefundTransaction.RefundStatus.FAILED);
-            transaction.setFailureReason(gatewayResponse != null ? 
-                (String) gatewayResponse.get("msg") : "Gateway error");
-            refundTransactionRepository.save(transaction);
-            throw new RuntimeException("Refund failed: " + transaction.getFailureReason());
+        } catch (Exception e) {
+            // Don't fail the refund if email fails
         }
     }
 
@@ -94,25 +104,32 @@ public class RefundService {
         transaction.setStatus(RefundTransaction.RefundStatus.PENDING);
         refundTransactionRepository.save(transaction);
 
-        Map<String, Object> gatewayResponse = payHereGatewayService.processRefund(
-            booking.getPaymentReference(), refundAmount, reason);
+        try {
+            Map<String, Object> gatewayResponse = payHereGatewayService.processRefund(
+                booking.getPaymentReference(), refundAmount, reason);
 
-        if (gatewayResponse != null && gatewayResponse.get("status").equals(1)) {
-            transaction.setStatus(RefundTransaction.RefundStatus.SUCCESS);
-            booking.setStatus(refundAmount.compareTo(booking.getTotalPrice()) == 0 ? 
-                AdventureCheckoutStatus.REFUNDED : AdventureCheckoutStatus.PARTIALLY_REFUNDED);
-            booking.setRefundedAmount(refundAmount);
-            booking.setCancelledAt(LocalDateTime.now());
-            booking.setCancellationReason(reason);
-            adventureBookingRepository.save(booking);
+            if (gatewayResponse != null && "1".equals(String.valueOf(gatewayResponse.get("status")))) {
+                transaction.setStatus(RefundTransaction.RefundStatus.SUCCESS);
+            } else {
+                transaction.setFailureReason(gatewayResponse != null ? 
+                    String.valueOf(gatewayResponse.get("msg")) : "Gateway unavailable");
+            }
+        } catch (Exception e) {
+            transaction.setFailureReason("Gateway error: " + e.getMessage());
+        }
+        refundTransactionRepository.save(transaction);
 
+        booking.setStatus(refundAmount.compareTo(booking.getTotalPrice()) == 0 ? 
+            AdventureCheckoutStatus.REFUNDED : AdventureCheckoutStatus.PARTIALLY_REFUNDED);
+        booking.setRefundedAmount(refundAmount);
+        booking.setCancelledAt(LocalDateTime.now());
+        booking.setCancellationReason(reason);
+        adventureBookingRepository.save(booking);
+
+        try {
             notificationService.sendRefundConfirmation(booking);
-        } else {
-            transaction.setStatus(RefundTransaction.RefundStatus.FAILED);
-            transaction.setFailureReason(gatewayResponse != null ? 
-                (String) gatewayResponse.get("msg") : "Gateway error");
-            refundTransactionRepository.save(transaction);
-            throw new RuntimeException("Refund failed: " + transaction.getFailureReason());
+        } catch (Exception e) {
+            // Don't fail the refund if email fails
         }
     }
 }

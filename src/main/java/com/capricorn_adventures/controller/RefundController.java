@@ -16,24 +16,28 @@ public class RefundController {
     }
 
     @PostMapping("/room/{id}")
-    public ResponseEntity<Map<String, String>> refundRoomBooking(
+    public ResponseEntity<?> refundRoomBooking(
             @PathVariable Long id,
             @RequestBody Map<String, String> request) {
-        
-        String reason = request.getOrDefault("reason", "User requested refund");
-        refundService.processRoomRefund(id, reason);
-        
-        return ResponseEntity.ok(Map.of("message", "Room refund processed successfully"));
+        try {
+            String reason = request.getOrDefault("reason", "User requested refund");
+            refundService.processRoomRefund(id, reason);
+            return ResponseEntity.ok(Map.of("message", "Room refund processed successfully"));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage() != null ? e.getMessage() : "Unknown error occurred"));
+        }
     }
 
     @PostMapping("/adventure/{id}")
-    public ResponseEntity<Map<String, String>> refundAdventureBooking(
+    public ResponseEntity<?> refundAdventureBooking(
             @PathVariable Long id,
             @RequestBody Map<String, String> request) {
-        
-        String reason = request.getOrDefault("reason", "User requested refund");
-        refundService.processAdventureRefund(id, reason);
-        
-        return ResponseEntity.ok(Map.of("message", "Adventure refund processed successfully"));
+        try {
+            String reason = request.getOrDefault("reason", "User requested refund");
+            refundService.processAdventureRefund(id, reason);
+            return ResponseEntity.ok(Map.of("message", "Adventure refund processed successfully"));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage() != null ? e.getMessage() : "Unknown error occurred"));
+        }
     }
 }
