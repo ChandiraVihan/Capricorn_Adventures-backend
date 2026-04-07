@@ -8,10 +8,19 @@ public class AdventureBrowseResponseDTO {
     private boolean emptyState;
     private String message;
     private List<AdventureCategoryCardDTO> suggestions;
+    private String resolvedLocation;
     private AppliedFilters appliedFilters;
 
     public List<AdventureSummaryDTO> getAdventures() {
         return adventures;
+    }
+
+    public String getResolvedLocation() {
+        return resolvedLocation;
+    }
+
+    public void setResolvedLocation(String resolvedLocation) {
+        this.resolvedLocation = resolvedLocation;
     }
 
     public void setAdventures(List<AdventureSummaryDTO> adventures) {
@@ -57,9 +66,45 @@ public class AdventureBrowseResponseDTO {
         private BigDecimal maxPrice;
         private Integer minDurationHours;
         private Integer maxDurationHours;
+        private Double userLat;
+        private Double userLng;
+        private String userCity;
+        private String sortBy;
 
         public Long getCategoryId() {
             return categoryId;
+        }
+
+        public Double getUserLat() {
+            return userLat;
+        }
+
+        public void setUserLat(Double userLat) {
+            this.userLat = userLat;
+        }
+
+        public Double getUserLng() {
+            return userLng;
+        }
+
+        public void setUserLng(Double userLng) {
+            this.userLng = userLng;
+        }
+
+        public String getUserCity() {
+            return userCity;
+        }
+
+        public void setUserCity(String userCity) {
+            this.userCity = userCity;
+        }
+
+        public String getSortBy() {
+            return sortBy;
+        }
+
+        public void setSortBy(String sortBy) {
+            this.sortBy = sortBy;
         }
 
         public void setCategoryId(Long categoryId) {

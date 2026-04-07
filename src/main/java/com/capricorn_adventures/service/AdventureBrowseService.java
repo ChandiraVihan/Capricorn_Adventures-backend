@@ -14,17 +14,21 @@ public interface AdventureBrowseService {
     AdventureCategoryCardDTO createAdventureCategory(String name, String thumbnailUrl);
 
     AdventureBrowseResponseDTO browseAdventures(Long categoryId,
-                                                String category,
-                                                BigDecimal minPrice,
-                                                BigDecimal maxPrice,
-                                                Integer minDurationHours,
-                                                Integer maxDurationHours);
+            String category,
+            BigDecimal minPrice,
+            BigDecimal maxPrice,
+            Integer minDurationHours,
+            Integer maxDurationHours,
+            Double userLat,
+            Double userLng,
+            String userCity,
+            String sortBy);
 
     AdventureDetailsResponseDTO getAdventureDetails(Long adventureId,
-                                                    LocalDate selectedFromDate,
-                                                    LocalDate selectedToDate);
+            LocalDate selectedFromDate,
+            LocalDate selectedToDate);
 
     AdventureBookingValidationResponseDTO validateAdventureBooking(Long adventureId,
-                                                                   Integer age,
-                                                                   Long scheduleId);
+            Integer age,
+            Long scheduleId);
 }
