@@ -118,14 +118,17 @@ public class WebhookService {
                                      String currency, String statusCode,
                                      String receivedMd5) {
         try {
-            // Step 1: MD5 of merchant secret (uppercase)
+            // MD5 of merchant secret (uppercase)
             String hashedSecret = md5(merchantSecret).toUpperCase();
 
-            // Step 2: Build signature string
+            // Build signature string
             String sigString = merchantId + orderId + amount + currency + statusCode + hashedSecret;
 
-            // Step 3: MD5 of full string (uppercase)
+            // MD5 of full string (uppercase)
             String expectedMd5 = md5(sigString).toUpperCase();
+
+    log.info("EXPECTED MD5: {}", expectedMd5);
+        log.info("RECEIVED MD5: {}", receivedMd5);
 
             return expectedMd5.equals(receivedMd5);
         } catch (Exception e) {
@@ -133,6 +136,8 @@ public class WebhookService {
             return false;
         }
     }
+
+
 
     private String md5(String input) throws Exception {
         MessageDigest md = MessageDigest.getInstance("MD5");
