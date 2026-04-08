@@ -118,6 +118,11 @@ public class BookingServiceImpl implements BookingService {
     }
 
     @Override
+    public Optional<Booking> getBookingById(Long id) {
+        return bookingRepository.findById(id);
+    }
+
+    @Override
     @org.springframework.transaction.annotation.Transactional
     public void cancelBooking(String referenceId) {
         bookingRepository.deleteByReferenceId(referenceId);

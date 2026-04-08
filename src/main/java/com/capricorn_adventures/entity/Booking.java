@@ -2,6 +2,9 @@ package com.capricorn_adventures.entity;
 
 import jakarta.persistence.*;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.math.BigDecimal;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 
 @Entity
 @Table(name = "bookings")
@@ -27,7 +30,7 @@ public class Booking {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id")
-    @com.fasterxml.jackson.annotation.JsonIgnore
+    @JsonIgnore
     private User user;
 
     @Column(length = 255)
@@ -40,20 +43,47 @@ public class Booking {
     private String guestPhone;
 
     @Column(nullable = false)
-    private java.math.BigDecimal totalPrice;
+    private BigDecimal totalPrice;
 
     @Column(length = 20, unique = true)
     private String referenceId;
 
+    @Column(nullable = false)
+    private BigDecimal refundedAmount = BigDecimal.ZERO;
+
+    @Column
+    private LocalDateTime cancelledAt;
+
+    @Column(length = 500)
+    private String cancellationReason;
+
+    @Column(nullable = false)
+    private boolean isRefundable = true;
+
+    @Column(length = 100)
+    private String paymentReference;
+
     public Booking() {
     }
 
-    // Getters and setters
+    public Long getId() { return id; }
+    public void setId(Long id) { this.id = id; }
+
+    public LocalDate getCheckInDate() { return checkInDate; }
+    public void setCheckInDate(LocalDate checkInDate) { this.checkInDate = checkInDate; }
+
+    public LocalDate getCheckOutDate() { return checkOutDate; }
+    public void setCheckOutDate(LocalDate checkOutDate) { this.checkOutDate = checkOutDate; }
+
+    public BookingStatus getStatus() { return status; }
+    public void setStatus(BookingStatus status) { this.status = status; }
+
+    public Room getRoom() { return room; }
+    public void setRoom(Room room) { this.room = room; }
+
     public User getUser() { return user; }
     public void setUser(User user) { this.user = user; }
 
-    public String getReferenceId() { return referenceId; }
-    public void setReferenceId(String referenceId) { this.referenceId = referenceId; }
     public String getGuestName() { return guestName; }
     public void setGuestName(String guestName) { this.guestName = guestName; }
 
@@ -63,42 +93,24 @@ public class Booking {
     public String getGuestPhone() { return guestPhone; }
     public void setGuestPhone(String guestPhone) { this.guestPhone = guestPhone; }
 
-    public java.math.BigDecimal getTotalPrice() { return totalPrice; }
-    public void setTotalPrice(java.math.BigDecimal totalPrice) { this.totalPrice = totalPrice; }
-    // Getters and setters
-    public Long getId() {       
-        return id;
-    }
-    public void setId(Long id) {
-        this.id = id;
-    }
-    public LocalDate getCheckInDate() {
-        return checkInDate;
-    }
-    public void setCheckInDate(LocalDate checkInDate) {
-        this.checkInDate = checkInDate; 
-    }
-    public LocalDate getCheckOutDate() {
-        return checkOutDate;
-    }
-    public void setCheckOutDate(LocalDate checkOutDate) {
-        this.checkOutDate = checkOutDate;
-    }
-    public BookingStatus getStatus() {
-        return status;
-    }
-    public void setStatus(BookingStatus status) {
-        this.status = status;
-    }
-    public Room getRoom() {
-        return room;
-    }
-    public void setRoom(Room room) {
-        this.room = room;
-    }
+    public BigDecimal getTotalPrice() { return totalPrice; }
+    public void setTotalPrice(BigDecimal totalPrice) { this.totalPrice = totalPrice; }
 
-    
+    public String getReferenceId() { return referenceId; }
+    public void setReferenceId(String referenceId) { this.referenceId = referenceId; }
 
+    public BigDecimal getRefundedAmount() { return refundedAmount; }
+    public void setRefundedAmount(BigDecimal refundedAmount) { this.refundedAmount = refundedAmount; }
 
+    public LocalDateTime getCancelledAt() { return cancelledAt; }
+    public void setCancelledAt(LocalDateTime cancelledAt) { this.cancelledAt = cancelledAt; }
 
+    public String getCancellationReason() { return cancellationReason; }
+    public void setCancellationReason(String cancellationReason) { this.cancellationReason = cancellationReason; }
+
+    public boolean isRefundable() { return isRefundable; }
+    public void setRefundable(boolean refundable) { isRefundable = refundable; }
+
+    public String getPaymentReference() { return paymentReference; }
+    public void setPaymentReference(String paymentReference) { this.paymentReference = paymentReference; }
 }

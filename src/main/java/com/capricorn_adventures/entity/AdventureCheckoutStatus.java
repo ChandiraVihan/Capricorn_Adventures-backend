@@ -4,5 +4,7 @@ public enum AdventureCheckoutStatus {
     PENDING,
     CONFIRMED,
     PAYMENT_FAILED,
-    CANCELLED
+    CANCELLED,
+    REFUNDED,
+    PARTIALLY_REFUNDED
 }

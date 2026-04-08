@@ -1,16 +1,6 @@
 package com.capricorn_adventures.entity;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
-import jakarta.persistence.FetchType;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
-import jakarta.persistence.Table;
+import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import org.hibernate.annotations.CreationTimestamp;
@@ -70,6 +60,21 @@ public class AdventureCheckoutBooking {
     @Column(length = 2000)
     private String whatToBring;
 
+    @Column(nullable = false)
+    private BigDecimal refundedAmount = BigDecimal.ZERO;
+
+    @Column
+    private LocalDateTime cancelledAt;
+
+    @Column(length = 500)
+    private String cancellationReason;
+
+    @Column(nullable = false)
+    private boolean isRefundable = true;
+
+    @Column(length = 100)
+    private String paymentReference;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
@@ -78,131 +83,66 @@ public class AdventureCheckoutBooking {
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 
-    public Long getId() {
-        return id;
-    }
+    public Long getId() { return id; }
+    public void setId(Long id) { this.id = id; }
 
-    public void setId(Long id) {
-        this.id = id;
-    }
+    public Adventure getAdventure() { return adventure; }
+    public void setAdventure(Adventure adventure) { this.adventure = adventure; }
 
-    public Adventure getAdventure() {
-        return adventure;
-    }
+    public AdventureSchedule getSchedule() { return schedule; }
+    public void setSchedule(AdventureSchedule schedule) { this.schedule = schedule; }
 
-    public void setAdventure(Adventure adventure) {
-        this.adventure = adventure;
-    }
+    public User getUser() { return user; }
+    public void setUser(User user) { this.user = user; }
 
-    public AdventureSchedule getSchedule() {
-        return schedule;
-    }
+    public Integer getParticipants() { return participants; }
+    public void setParticipants(Integer participants) { this.participants = participants; }
 
-    public void setSchedule(AdventureSchedule schedule) {
-        this.schedule = schedule;
-    }
+    public BigDecimal getUnitPrice() { return unitPrice; }
+    public void setUnitPrice(BigDecimal unitPrice) { this.unitPrice = unitPrice; }
 
-    public User getUser() {
-        return user;
-    }
+    public BigDecimal getTotalPrice() { return totalPrice; }
+    public void setTotalPrice(BigDecimal totalPrice) { this.totalPrice = totalPrice; }
 
-    public void setUser(User user) {
-        this.user = user;
-    }
+    public AdventureCheckoutStatus getStatus() { return status; }
+    public void setStatus(AdventureCheckoutStatus status) { this.status = status; }
 
-    public Integer getParticipants() {
-        return participants;
-    }
+    public String getGuestName() { return guestName; }
+    public void setGuestName(String guestName) { this.guestName = guestName; }
 
-    public void setParticipants(Integer participants) {
-        this.participants = participants;
-    }
+    public String getGuestEmail() { return guestEmail; }
+    public void setGuestEmail(String guestEmail) { this.guestEmail = guestEmail; }
 
-    public BigDecimal getUnitPrice() {
-        return unitPrice;
-    }
+    public String getGuestPhone() { return guestPhone; }
+    public void setGuestPhone(String guestPhone) { this.guestPhone = guestPhone; }
 
-    public void setUnitPrice(BigDecimal unitPrice) {
-        this.unitPrice = unitPrice;
-    }
+    public String getBookingReference() { return bookingReference; }
+    public void setBookingReference(String bookingReference) { this.bookingReference = bookingReference; }
 
-    public BigDecimal getTotalPrice() {
-        return totalPrice;
-    }
+    public String getPaymentFailureReason() { return paymentFailureReason; }
+    public void setPaymentFailureReason(String paymentFailureReason) { this.paymentFailureReason = paymentFailureReason; }
 
-    public void setTotalPrice(BigDecimal totalPrice) {
-        this.totalPrice = totalPrice;
-    }
+    public String getMeetingPoint() { return meetingPoint; }
+    public void setMeetingPoint(String meetingPoint) { this.meetingPoint = meetingPoint; }
 
-    public AdventureCheckoutStatus getStatus() {
-        return status;
-    }
+    public String getWhatToBring() { return whatToBring; }
+    public void setWhatToBring(String whatToBring) { this.whatToBring = whatToBring; }
 
-    public void setStatus(AdventureCheckoutStatus status) {
-        this.status = status;
-    }
+    public BigDecimal getRefundedAmount() { return refundedAmount; }
+    public void setRefundedAmount(BigDecimal refundedAmount) { this.refundedAmount = refundedAmount; }
 
-    public String getGuestName() {
-        return guestName;
-    }
+    public LocalDateTime getCancelledAt() { return cancelledAt; }
+    public void setCancelledAt(LocalDateTime cancelledAt) { this.cancelledAt = cancelledAt; }
 
-    public void setGuestName(String guestName) {
-        this.guestName = guestName;
-    }
+    public String getCancellationReason() { return cancellationReason; }
+    public void setCancellationReason(String cancellationReason) { this.cancellationReason = cancellationReason; }
 
-    public String getGuestEmail() {
-        return guestEmail;
-    }
+    public boolean isRefundable() { return isRefundable; }
+    public void setRefundable(boolean refundable) { isRefundable = refundable; }
 
-    public void setGuestEmail(String guestEmail) {
-        this.guestEmail = guestEmail;
-    }
+    public String getPaymentReference() { return paymentReference; }
+    public void setPaymentReference(String paymentReference) { this.paymentReference = paymentReference; }
 
-    public String getGuestPhone() {
-        return guestPhone;
-    }
-
-    public void setGuestPhone(String guestPhone) {
-        this.guestPhone = guestPhone;
-    }
-
-    public String getBookingReference() {
-        return bookingReference;
-    }
-
-    public void setBookingReference(String bookingReference) {
-        this.bookingReference = bookingReference;
-    }
-
-    public String getPaymentFailureReason() {
-        return paymentFailureReason;
-    }
-
-    public void setPaymentFailureReason(String paymentFailureReason) {
-        this.paymentFailureReason = paymentFailureReason;
-    }
-
-    public String getMeetingPoint() {
-        return meetingPoint;
-    }
-
-    public void setMeetingPoint(String meetingPoint) {
-        this.meetingPoint = meetingPoint;
-    }
-
-    public String getWhatToBring() {
-        return whatToBring;
-    }
-
-    public void setWhatToBring(String whatToBring) {
-        this.whatToBring = whatToBring;
-    }
-
-    public LocalDateTime getCreatedAt() {
-        return createdAt;
-    }
-
-    public LocalDateTime getUpdatedAt() {
-        return updatedAt;
-    }
+    public LocalDateTime getCreatedAt() { return createdAt; }
+    public LocalDateTime getUpdatedAt() { return updatedAt; }
 }
