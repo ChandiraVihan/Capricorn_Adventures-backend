@@ -66,8 +66,10 @@ public class SecurityConfig {
                     "/api/v1/rooms/search",
                     "/api/v1/rooms/**",
                     "/oauth2/**",
-                    "/login/oauth2/**"
+                    "/login/oauth2/**",
+                    "/api/webhooks/**"
                 ).permitAll()
+                .requestMatchers("/api/finance/**").authenticated()
                 .anyRequest().permitAll()
             )
 
