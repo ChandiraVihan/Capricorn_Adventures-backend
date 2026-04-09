@@ -94,7 +94,7 @@ public class PaymentInvoiceService {
         // Void the invoice
         invoiceRepo.findByBookingId(payment.getBooking().getId())
                 .ifPresent(inv -> {
-                    inv.setStatus("VOID");
+                    inv.setStatus(InvoiceStatus.VOID);
                     invoiceRepo.save(inv);
                 });
 
@@ -126,7 +126,7 @@ public class PaymentInvoiceService {
         invoice.setSubtotal(subtotal);
         invoice.setTaxAmount(tax);
         invoice.setTotalAmount(total);
-        invoice.setStatus("ISSUED");
+        invoice.setStatus(InvoiceStatus.ISSUED);
 
         return invoiceRepo.save(invoice);
     }
@@ -166,5 +166,32 @@ public class PaymentInvoiceService {
                 .orElseThrow(() -> new EntityNotFoundException("Booking not found"));
         return invoiceRepo.findByBookingId(booking.getId())
                 .orElseThrow(() -> new EntityNotFoundException("Invoice not found for booking"));
+    }
+
+    public Payment recordChargeback(String bookingReferenceId,
+                                    String transactionId,
+                                    BigDecimal amount,
+                                    String currency) {
+        Booking booking = bookingRepo.findByReferenceId(bookingReferenceId)
+                .orElseThrow(() -> new EntityNotFoundException("Booking not found: " + bookingReferenceId));
+
+        Payment payment = new Payment();
+        payment.setBooking(booking);
+        payment.setTransactionId(transactionId);
+        payment.setAmount(amount);
+        payment.setCurrency(currency);
+        payment.setStatus(PaymentStatus.CHARGEBACK);
+        payment.setFailureReason("Chargeback initiated by cardholder");
+        Payment saved = paymentRepo.save(payment);
+
+        // Void the invoice if exists
+        invoiceRepo.findByBookingId(booking.getId())
+                .ifPresent(inv -> {
+                    inv.setStatus(InvoiceStatus.VOID);
+                    invoiceRepo.save(inv);
+                });
+
+        log.info("Chargeback recorded for booking {}", bookingReferenceId);
+        return saved;
     }
 }

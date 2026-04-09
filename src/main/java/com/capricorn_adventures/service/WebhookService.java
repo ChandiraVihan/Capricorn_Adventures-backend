@@ -131,7 +131,26 @@ public class WebhookService {
         log.info("Booking {} payment failed/cancelled, failure recorded", orderId);
     }
 
-    // US-17 AC2 — chargeback updates payment record
+//    // US-17 AC2 — chargeback updates payment record
+//    private void handleChargeback(String orderId, String paymentId,
+//                                  String amount, String currency) {
+//        Booking booking = bookingRepo.findByReferenceId(orderId)
+//                .orElseThrow(() -> new EntityNotFoundException("Booking not found: " + orderId));
+//        booking.setStatus(BookingStatus.CANCELLED);
+//        bookingRepo.save(booking);
+//
+//        // Record as failed with chargeback reason
+//        paymentInvoiceService.recordFailedPayment(
+//                orderId,
+//                paymentId,
+//                new BigDecimal(amount),
+//                currency,
+//                "Chargeback initiated by cardholder"
+//        );
+//
+//        log.info("Booking {} charged back, record updated", orderId);
+//    }
+
     private void handleChargeback(String orderId, String paymentId,
                                   String amount, String currency) {
         Booking booking = bookingRepo.findByReferenceId(orderId)
@@ -139,13 +158,11 @@ public class WebhookService {
         booking.setStatus(BookingStatus.CANCELLED);
         bookingRepo.save(booking);
 
-        // Record as failed with chargeback reason
-        paymentInvoiceService.recordFailedPayment(
+        paymentInvoiceService.recordChargeback(
                 orderId,
                 paymentId,
                 new BigDecimal(amount),
-                currency,
-                "Chargeback initiated by cardholder"
+                currency
         );
 
         log.info("Booking {} charged back, record updated", orderId);
