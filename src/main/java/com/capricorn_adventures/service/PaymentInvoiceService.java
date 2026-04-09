@@ -13,7 +13,8 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
-import java.util.concurrent.atomic.AtomicLong;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 
 @Service
 @Transactional
@@ -26,8 +27,6 @@ public class PaymentInvoiceService {
     private final InvoiceRepository invoiceRepo;
     private final BookingRepository bookingRepo;
 
-    // Simple in-memory sequence  replacing with DB sequence in production
-    private final AtomicLong invoiceSequence = new AtomicLong(1);
 
     public PaymentInvoiceService(PaymentRepository paymentRepo,
                                  InvoiceRepository invoiceRepo,
@@ -132,14 +131,27 @@ public class PaymentInvoiceService {
         return invoiceRepo.save(invoice);
     }
 
-    // AC5 — Ensures uniqueness with retry
+//    // AC5 — Ensures uniqueness with retry
+//    private String generateUniqueInvoiceNumber() {
+//        String datePrefix = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
+//        String candidate;
+//        do {
+//            candidate = String.format("INV-%s-%06d", datePrefix, invoiceSequence.getAndIncrement());
+//        } while (invoiceRepo.existsByInvoiceNumber(candidate));
+//        return candidate;
+//    }
+
+    @PersistenceContext
+    private EntityManager entityManager;
+
     private String generateUniqueInvoiceNumber() {
         String datePrefix = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
-        String candidate;
-        do {
-            candidate = String.format("INV-%s-%06d", datePrefix, invoiceSequence.getAndIncrement());
-        } while (invoiceRepo.existsByInvoiceNumber(candidate));
-        return candidate;
+
+        Long nextVal = (Long) entityManager
+                .createNativeQuery("SELECT nextval('invoice_number_seq')")
+                .getSingleResult();
+
+        return String.format("INV-%s-%06d", datePrefix, nextVal);
     }
 
     public Payment getPaymentByBookingReference(String referenceId) {
