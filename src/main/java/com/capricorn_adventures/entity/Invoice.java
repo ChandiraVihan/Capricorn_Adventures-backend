@@ -36,8 +36,9 @@ public class Invoice {
     @Column(nullable = false)
     private LocalDateTime issuedAt;
 
+    @Enumerated(EnumType.STRING)
     @Column(length = 50)
-    private String status; // ISSUED, VOID
+    private InvoiceStatus status;
 
     @PrePersist
     protected void onCreate() { this.issuedAt = LocalDateTime.now(); }
@@ -67,6 +68,6 @@ public class Invoice {
     public LocalDateTime getIssuedAt() { return issuedAt; }
     public void setIssuedAt(LocalDateTime issuedAt) { this.issuedAt = issuedAt; }
 
-    public String getStatus() { return status; }
-    public void setStatus(String status) { this.status = status; }
+    public InvoiceStatus getStatus() { return status; }
+    public void setStatus(InvoiceStatus status) { this.status = status; }
 }
