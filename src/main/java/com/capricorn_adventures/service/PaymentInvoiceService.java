@@ -36,6 +36,19 @@ public class PaymentInvoiceService {
         this.bookingRepo = bookingRepo;
     }
 
+    @PersistenceContext
+    private EntityManager entityManager;
+
+    private String generateUniqueInvoiceNumber() {
+        String datePrefix = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
+
+        Long nextVal = (Long) entityManager
+                .createNativeQuery("SELECT nextval('invoice_number_seq')")
+                .getSingleResult();
+
+        return String.format("INV-%s-%06d", datePrefix, nextVal);
+    }
+
     // AC1 — Store payment record on successful payment
     public Payment recordSuccessfulPayment(String bookingReferenceId,
                                            String transactionId,
@@ -141,18 +154,7 @@ public class PaymentInvoiceService {
 //        return candidate;
 //    }
 
-    @PersistenceContext
-    private EntityManager entityManager;
 
-    private String generateUniqueInvoiceNumber() {
-        String datePrefix = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
-
-        Long nextVal = (Long) entityManager
-                .createNativeQuery("SELECT nextval('invoice_number_seq')")
-                .getSingleResult();
-
-        return String.format("INV-%s-%06d", datePrefix, nextVal);
-    }
 
     public Payment getPaymentByBookingReference(String referenceId) {
         Booking booking = bookingRepo.findByReferenceId(referenceId)

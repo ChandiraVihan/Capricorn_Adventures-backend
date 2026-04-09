@@ -176,8 +176,8 @@ public class WebhookService {
             String sigString    = merchantId + orderId + amount + currency + statusCode + hashedSecret;
             String expectedMd5  = md5(sigString).toUpperCase();
 
-            log.info("EXPECTED MD5: {}", expectedMd5);
-            log.info("RECEIVED MD5: {}", receivedMd5);
+            log.debug("EXPECTED MD5: {}", expectedMd5);
+            log.debug("RECEIVED MD5: {}", receivedMd5);
 
             return expectedMd5.equals(receivedMd5);
         } catch (Exception e) {
