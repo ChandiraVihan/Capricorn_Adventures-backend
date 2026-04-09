@@ -28,6 +28,7 @@ public class WebhookService {
 
     private final PaymentWebhookEventRepository webhookRepo;
     private final BookingRepository bookingRepo;
+    private final PaymentInvoiceService paymentInvoiceService;
 
     @Value("${payhere.merchant.id}")
     private String merchantId;
@@ -36,18 +37,20 @@ public class WebhookService {
     private String merchantSecret;
 
     public WebhookService(PaymentWebhookEventRepository webhookRepo,
-                          BookingRepository bookingRepo) {
+                          BookingRepository bookingRepo,
+                          PaymentInvoiceService paymentInvoiceService) {
         this.webhookRepo = webhookRepo;
         this.bookingRepo = bookingRepo;
+        this.paymentInvoiceService = paymentInvoiceService;
     }
 
     public void handleWebhook(Map<String, String> params) {
-        String orderId     = params.get("order_id");
-        String amount      = params.get("payhere_amount");
-        String currency    = params.get("payhere_currency");
-        String statusCode  = params.get("status_code");
-        String md5sig      = params.get("md5sig");
-        String paymentId   = params.get("payment_id"); // idempotency key
+        String orderId    = params.get("order_id");
+        String amount     = params.get("payhere_amount");
+        String currency   = params.get("payhere_currency");
+        String statusCode = params.get("status_code");
+        String md5sig     = params.get("md5sig");
+        String paymentId  = params.get("payment_id"); // idempotency key
 
         // 1. Verify signature
         if (!isValidSignature(orderId, amount, currency, statusCode, md5sig)) {
@@ -73,10 +76,10 @@ public class WebhookService {
             // 4. Handle by PayHere status code
             // 2 = Success, 0 = Pending, -1 = Canceled, -2 = Failed, -3 = Chargedback
             switch (statusCode) {
-                case "2"  -> handlePaymentSuccess(orderId, amount);
-                case "-3" -> handleChargeback(orderId);
-                case "-1", "-2" -> handlePaymentFailed(orderId);
-                default   -> log.warn("Unhandled PayHere status code: {}", statusCode);
+                case "2"        -> handlePaymentSuccess(orderId, amount, currency, paymentId);
+                case "-3"       -> handleChargeback(orderId, paymentId, amount, currency);
+                case "-1", "-2" -> handlePaymentFailed(orderId, paymentId, amount, currency);
+                default         -> log.warn("Unhandled PayHere status code: {}", statusCode);
             }
             record.setStatus("PROCESSED");
         } catch (Exception ex) {
@@ -89,46 +92,92 @@ public class WebhookService {
         }
     }
 
-    private void handlePaymentSuccess(String orderId, String amount) {
+    // US-17 AC1 — store payment record + auto-generate invoice
+    private void handlePaymentSuccess(String orderId, String amount,
+                                      String currency, String paymentId) {
         Booking booking = bookingRepo.findByReferenceId(orderId)
                 .orElseThrow(() -> new EntityNotFoundException("Booking not found: " + orderId));
         booking.setStatus(BookingStatus.CONFIRMED);
-        booking.setPaymentReference(orderId);
+        booking.setPaymentReference(paymentId);
         bookingRepo.save(booking);
-        log.info("Booking {} confirmed via PayHere", orderId);
+
+        paymentInvoiceService.recordSuccessfulPayment(
+                orderId,
+                paymentId,
+                new BigDecimal(amount),
+                currency,
+                "PAYHERE"
+        );
+
+        log.info("Booking {} confirmed, payment & invoice stored", orderId);
     }
 
-    private void handleChargeback(String orderId) {
+    // US-17 AC4 — store failure reason
+    private void handlePaymentFailed(String orderId, String paymentId,
+                                     String amount, String currency) {
         Booking booking = bookingRepo.findByReferenceId(orderId)
                 .orElseThrow(() -> new EntityNotFoundException("Booking not found: " + orderId));
         booking.setStatus(BookingStatus.CANCELLED);
         bookingRepo.save(booking);
-        log.info("Booking {} charged back", orderId);
+
+        paymentInvoiceService.recordFailedPayment(
+                orderId,
+                paymentId,
+                new BigDecimal(amount),
+                currency,
+                "Payment failed or cancelled by user"
+        );
+
+        log.info("Booking {} payment failed/cancelled, failure recorded", orderId);
     }
 
-    private void handlePaymentFailed(String orderId) {
+//    // US-17 AC2 — chargeback updates payment record
+//    private void handleChargeback(String orderId, String paymentId,
+//                                  String amount, String currency) {
+//        Booking booking = bookingRepo.findByReferenceId(orderId)
+//                .orElseThrow(() -> new EntityNotFoundException("Booking not found: " + orderId));
+//        booking.setStatus(BookingStatus.CANCELLED);
+//        bookingRepo.save(booking);
+//
+//        // Record as failed with chargeback reason
+//        paymentInvoiceService.recordFailedPayment(
+//                orderId,
+//                paymentId,
+//                new BigDecimal(amount),
+//                currency,
+//                "Chargeback initiated by cardholder"
+//        );
+//
+//        log.info("Booking {} charged back, record updated", orderId);
+//    }
+
+    private void handleChargeback(String orderId, String paymentId,
+                                  String amount, String currency) {
         Booking booking = bookingRepo.findByReferenceId(orderId)
                 .orElseThrow(() -> new EntityNotFoundException("Booking not found: " + orderId));
         booking.setStatus(BookingStatus.CANCELLED);
         bookingRepo.save(booking);
-        log.info("Booking {} payment failed/cancelled", orderId);
+
+        paymentInvoiceService.recordChargeback(
+                orderId,
+                paymentId,
+                new BigDecimal(amount),
+                currency
+        );
+
+        log.info("Booking {} charged back, record updated", orderId);
     }
 
     private boolean isValidSignature(String orderId, String amount,
                                      String currency, String statusCode,
                                      String receivedMd5) {
         try {
-            // MD5 of merchant secret (uppercase)
             String hashedSecret = md5(merchantSecret).toUpperCase();
+            String sigString    = merchantId + orderId + amount + currency + statusCode + hashedSecret;
+            String expectedMd5  = md5(sigString).toUpperCase();
 
-            // Build signature string
-            String sigString = merchantId + orderId + amount + currency + statusCode + hashedSecret;
-
-            // MD5 of full string (uppercase)
-            String expectedMd5 = md5(sigString).toUpperCase();
-
-    log.info("EXPECTED MD5: {}", expectedMd5);
-        log.info("RECEIVED MD5: {}", receivedMd5);
+            log.debug("EXPECTED MD5: {}", expectedMd5);
+            log.debug("RECEIVED MD5: {}", receivedMd5);
 
             return expectedMd5.equals(receivedMd5);
         } catch (Exception e) {
@@ -136,8 +185,6 @@ public class WebhookService {
             return false;
         }
     }
-
-
 
     private String md5(String input) throws Exception {
         MessageDigest md = MessageDigest.getInstance("MD5");
