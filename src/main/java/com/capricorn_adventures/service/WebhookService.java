@@ -78,15 +78,7 @@ public class WebhookService {
         webhookRepo.save(record);
 
         try {
-            // 4. Handle by PayHere status code
-            // 2 = Success, 0 = Pending, -1 = Canceled, -2 = Failed, -3 = Chargedback
-            switch (statusCode) {
-                case "2"        -> handlePaymentSuccess(orderId, amount, currency, paymentId);
-                case "0", "1"   -> handlePaymentPending(orderId, amount, currency, paymentId);
-                case "-3"       -> handleChargeback(orderId, paymentId, amount, currency);
-                case "-1", "-2" -> handlePaymentFailed(orderId, paymentId, amount, currency);
-                default         -> log.warn("Unhandled PayHere status code: {}", statusCode);
-            }
+            processStatusUpdate(params, record, statusCode, orderId, amount, currency, paymentId);
             record.setStatus("PROCESSED");
         } catch (Exception ex) {
             record.setStatus("FAILED");
@@ -96,6 +88,57 @@ public class WebhookService {
             record.setProcessedAt(LocalDateTime.now());
             webhookRepo.save(record);
         }
+    }
+
+    private void processStatusUpdate(Map<String, String> params, PaymentWebhookEvent record, String statusCode,
+                                     String orderId, String amount, String currency, String paymentId) {
+        // 4. Handle by PayHere status code
+        // 2 = Success, 0 = Pending, -1 = Canceled, -2 = Failed, -3 = Chargedback
+        switch (statusCode) {
+            case "2"        -> handlePaymentSuccess(orderId, amount, currency, paymentId);
+            case "0", "1"   -> handlePaymentPending(orderId, amount, currency, paymentId);
+            case "-3"       -> handleChargeback(orderId, paymentId, amount, currency);
+            case "-1", "-2" -> handlePaymentFailed(orderId, paymentId, amount, currency);
+            default         -> log.warn("Unhandled PayHere status code: {}", statusCode);
+        }
+    }
+
+    // Recover missed payments by re-scanning all confirmed webhook events
+    public int syncMissingPayments() {
+        List<PaymentWebhookEvent> events = webhookRepo.findAll();
+        int count = 0;
+        for (PaymentWebhookEvent event : events) {
+            // Very basic parse of the {key=val, ...} string if we need to re-process
+            // But usually we can just look at the event type we stored
+            if (event.getEventType().startsWith("PAYHERE_STATUS_")) {
+                String statusCode = event.getEventType().replace("PAYHERE_STATUS_", "");
+                // We'd need to extract orderId, amount, currency from the payload string
+                // Since the format is simple, we can try to extract the main bits
+                Map<String, String> params = parsePayload(event.getPayload());
+                try {
+                    processStatusUpdate(params, event, statusCode,
+                            params.get("order_id"), params.get("payhere_amount"),
+                            params.get("payhere_currency"), event.getEventId());
+                    count++;
+                } catch (Exception e) {
+                    log.warn("Failed to sync event {}: {}", event.getEventId(), e.getMessage());
+                }
+            }
+        }
+        return count;
+    }
+
+    private Map<String, String> parsePayload(String payload) {
+        // Payload is stored as "{key=val, key2=val2}"
+        java.util.HashMap<String, String> map = new java.util.HashMap<>();
+        if (payload == null || !payload.startsWith("{") || !payload.endsWith("}")) return map;
+        String content = payload.substring(1, payload.length() - 1);
+        String[] pairs = content.split(", ");
+        for (String pair : pairs) {
+            String[] kv = pair.split("=", 2);
+            if (kv.length == 2) map.put(kv[0], kv[1]);
+        }
+        return map;
     }
 
     // US-17 AC1 — store payment record + auto-generate invoice

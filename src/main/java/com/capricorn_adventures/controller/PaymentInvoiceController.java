@@ -3,6 +3,7 @@ package com.capricorn_adventures.controller;
 import com.capricorn_adventures.dto.InvoiceResponseDTO;
 import com.capricorn_adventures.dto.PaymentResponseDTO;
 import com.capricorn_adventures.service.PaymentInvoiceService;
+import com.capricorn_adventures.service.WebhookService;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -16,9 +17,11 @@ import java.util.stream.Collectors;
 public class PaymentInvoiceController {
 
     private final PaymentInvoiceService service;
+    private final WebhookService webhookService;
 
-    public PaymentInvoiceController(PaymentInvoiceService service) {
+    public PaymentInvoiceController(PaymentInvoiceService service, WebhookService webhookService) {
         this.service = service;
+        this.webhookService = webhookService;
     }
 
     @GetMapping("/payments")
@@ -53,4 +56,10 @@ public class PaymentInvoiceController {
     public ResponseEntity<InvoiceResponseDTO> getInvoiceByBooking(@PathVariable String referenceId) {
         return ResponseEntity.ok(InvoiceResponseDTO.from(service.getInvoiceByBookingReference(referenceId)));
     }
-}
+
+    @PostMapping("/sync")
+    public ResponseEntity<String> syncPayments() {
+        int count = webhookService.syncMissingPayments();
+        return ResponseEntity.ok("Synced " + count + " webhook events.");
+    }
+}
