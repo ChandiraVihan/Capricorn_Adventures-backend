@@ -8,6 +8,7 @@ import com.capricorn_adventures.exception.WebhookSignatureException;
 import com.capricorn_adventures.repository.PaymentWebhookEventRepository;
 import java.util.List;
 import com.capricorn_adventures.util.PayHereUtils;
+import com.capricorn_adventures.service.WebhookAuditService;
 
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.transaction.annotation.Transactional;
@@ -32,6 +33,7 @@ public class WebhookService {
     private final PaymentWebhookEventRepository webhookRepo;
     private final BookingRepository bookingRepo;
     private final PaymentInvoiceService paymentInvoiceService;
+    private final WebhookAuditService auditService;
 
     @Value("${payhere.merchant.id}")
     private String merchantId;
@@ -44,22 +46,26 @@ public class WebhookService {
 
     public WebhookService(PaymentWebhookEventRepository webhookRepo,
                           BookingRepository bookingRepo,
-                          PaymentInvoiceService paymentInvoiceService) {
+                          PaymentInvoiceService paymentInvoiceService,
+                          WebhookAuditService auditService) {
         this.webhookRepo = webhookRepo;
         this.bookingRepo = bookingRepo;
         this.paymentInvoiceService = paymentInvoiceService;
+        this.auditService = auditService;
     }
 
     public void handleWebhook(Map<String, String> params) {
+        System.out.println("[DIAGNOSTIC] PAYHERE WEBHOOK RECEIVED: " + params);
+        
         String statusCode = params.get("status_code");
         String paymentId  = params.get("payment_id"); 
         String orderId    = params.get("order_id");
 
-        // 1. Ensure eventId is never null (fallback to orderId + status)
+        // 1. Ensure eventId is never null
         String finalEventId = paymentId != null ? paymentId : orderId + "_" + statusCode + "_" + System.currentTimeMillis();
 
-        // 2. Audit step: Save in a separate transaction so it's committed even if processing fails
-        PaymentWebhookEvent record = saveInitialAudit(params, finalEventId, statusCode);
+        // 2. Resilient Audit (Separate Transaction)
+        PaymentWebhookEvent record = auditService.saveInitialAudit(finalEventId, statusCode, params.toString());
 
         // 3. Validate signature
         String amount     = params.get("payhere_amount");
@@ -71,40 +77,22 @@ public class WebhookService {
         String expectedHash = PayHereUtils.getMd5(rawString);
 
         if (!skipSigCheck && !expectedHash.equalsIgnoreCase(md5Sig)) {
-            log.warn("Invalid PayHere signature for orderId={}. Expected={}, Got={}", orderId, expectedHash, md5Sig);
-            updateEventStatus(record, "INVALID_SIGNATURE");
+            System.err.println("[DIAGNOSTIC] INVALID SIGNATURE for Order " + orderId + ". Expected: " + expectedHash + " Got: " + md5Sig);
+            auditService.updateEventStatus(record, "INVALID_SIGNATURE");
             return;
         }
 
-        updateEventStatus(record, "PROCESSING");
+        auditService.updateEventStatus(record, "PROCESSING");
 
         try {
             processStatusUpdate(params, record, statusCode, orderId, amount, currency, finalEventId);
-            updateEventStatus(record, "PROCESSED");
+            auditService.updateEventStatus(record, "PROCESSED");
+            System.out.println("[DIAGNOSTIC] WEBHOOK PROCESSED SUCCESSFULLY for Order " + orderId);
         } catch (Exception ex) {
-            updateEventStatus(record, "FAILED");
+            auditService.updateEventStatus(record, "FAILED");
             log.error("PayHere webhook processing failed for eventId={}", finalEventId, ex);
-            // We don't rethrow here to ensure the 200 OK is sent to PayHere, stopping retries
-            // and keeping our "FAILED" status committed.
+            System.err.println("[DIAGNOSTIC] PROCESSING FAILED for Order " + orderId + ": " + ex.getMessage());
         }
-    }
-
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public PaymentWebhookEvent saveInitialAudit(Map<String, String> params, String eventId, String statusCode) {
-        PaymentWebhookEvent record = new PaymentWebhookEvent();
-        record.setEventId(eventId);
-        record.setEventType("PAYHERE_STATUS_" + statusCode);
-        record.setPayload(params.toString());
-        record.setStatus("RECEIVED");
-        record.setReceivedAt(LocalDateTime.now());
-        return webhookRepo.save(record);
-    }
-
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public void updateEventStatus(PaymentWebhookEvent record, String status) {
-        record.setStatus(status);
-        record.setProcessedAt(LocalDateTime.now());
-        webhookRepo.save(record);
     }
 
     private void processStatusUpdate(Map<String, String> params, PaymentWebhookEvent record, String statusCode,
