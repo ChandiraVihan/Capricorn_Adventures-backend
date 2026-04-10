@@ -72,7 +72,14 @@ public class PaymentInvoiceService {
 
         // Auto-generate invoice on successful payment (if not already generated)
         if (!invoiceRepo.findByBookingId(booking.getId()).isPresent()) {
-            generateInvoice(saved, booking);
+            try {
+                generateInvoice(saved, booking);
+            } catch (Exception e) {
+                log.error("CRITICAL: Failed to generate invoice for booking {}. Sequence might be missing. Error: {}", 
+                    bookingReferenceId, e.getMessage());
+                // We do NOT rethrow here because the payment was successful.
+                // It is better to have a paid booking without an invoice than to crash the payment system.
+            }
         }
 
         log.info("Payment recorded and invoice generated for booking {}", bookingReferenceId);
