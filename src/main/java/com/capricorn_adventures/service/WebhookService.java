@@ -50,31 +50,35 @@ public class WebhookService {
     }
 
     public void handleWebhook(Map<String, String> params) {
-        String orderId    = params.get("order_id");
-        String amount     = params.get("payhere_amount");
-        String currency   = params.get("payhere_currency");
         String statusCode = params.get("status_code");
-        String md5sig     = params.get("md5sig");
         String paymentId  = params.get("payment_id"); // idempotency key
 
-        // 1. Verify signature
-        if (!skipSigCheck && !isValidSignature(orderId, amount, currency, statusCode, md5sig)) {
-            throw new WebhookSignatureException("Invalid PayHere webhook signature");
-        }
-
-        // 2. Idempotency check — allow same paymentId if event type is different (state transition)
-        String eventType = "PAYHERE_STATUS_" + statusCode;
-        if (webhookRepo.findByEventId(paymentId).stream()
-                .anyMatch(e -> e.getEventType().equals(eventType))) {
-            log.info("Duplicate PayHere webhook ignored: {} with type {}", paymentId, eventType);
-            return;
-        }
-
-        // 3. Persist webhook event
+        // 2. Audit step: Save the attempt immediately so it shows in the Sync history
         PaymentWebhookEvent record = new PaymentWebhookEvent();
         record.setEventId(paymentId);
         record.setEventType("PAYHERE_STATUS_" + statusCode);
         record.setPayload(params.toString());
+        record.setStatus("RECEIVED");
+        webhookRepo.save(record);
+
+        // 3. Validate signature
+        String orderId    = params.get("order_id");
+        String amount     = params.get("payhere_amount");
+        String currency   = params.get("payhere_currency");
+        String md5Sig     = params.get("md5sig");
+
+        String secretHash = PayHereUtils.getMd5(merchantSecret);
+        String rawString = merchantId + orderId + amount + currency + statusCode + secretHash;
+        String expectedHash = PayHereUtils.getMd5(rawString);
+
+        if (!skipSigCheck && !expectedHash.equalsIgnoreCase(md5Sig)) {
+            log.warn("Invalid PayHere signature for orderId={}. Expected={}, Got={}", orderId, expectedHash, md5Sig);
+            record.setStatus("INVALID_SIGNATURE");
+            record.setProcessedAt(LocalDateTime.now());
+            webhookRepo.save(record);
+            return;
+        }
+
         record.setReceivedAt(LocalDateTime.now());
         record.setStatus("PROCESSING");
         webhookRepo.save(record);
