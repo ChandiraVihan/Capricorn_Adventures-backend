@@ -47,8 +47,7 @@ public class AdventureBrowseController {
             @Valid @RequestBody CreateAdventureCategoryRequestDTO request) {
         AdventureCategoryCardDTO created = adventureBrowseService.createAdventureCategory(
                 request.getName(),
-                request.getThumbnailUrl()
-        );
+                request.getThumbnailUrl());
         return ResponseEntity.status(HttpStatus.CREATED).body(created);
     }
 
@@ -59,7 +58,11 @@ public class AdventureBrowseController {
             @RequestParam(required = false) BigDecimal minPrice,
             @RequestParam(required = false) BigDecimal maxPrice,
             @RequestParam(required = false) Integer minDurationHours,
-            @RequestParam(required = false) Integer maxDurationHours) {
+            @RequestParam(required = false) Integer maxDurationHours,
+            @RequestParam(required = false) Double userLat,
+            @RequestParam(required = false) Double userLng,
+            @RequestParam(required = false) String userCity,
+            @RequestParam(required = false) String sortBy) {
 
         AdventureBrowseResponseDTO response = adventureBrowseService.browseAdventures(
                 categoryId,
@@ -67,8 +70,11 @@ public class AdventureBrowseController {
                 minPrice,
                 maxPrice,
                 minDurationHours,
-                maxDurationHours
-        );
+                maxDurationHours,
+                userLat,
+                userLng,
+                userCity,
+                sortBy);
 
         return ResponseEntity.ok(response);
     }
@@ -87,8 +93,11 @@ public class AdventureBrowseController {
                 request.getMinPrice(),
                 request.getMaxPrice(),
                 request.getMinDurationHours(),
-                request.getMaxDurationHours()
-        );
+                request.getMaxDurationHours(),
+                request.getUserLat(),
+                request.getUserLng(),
+                request.getUserCity(),
+                request.getSortBy());
 
         return ResponseEntity.ok(response);
     }
@@ -102,8 +111,7 @@ public class AdventureBrowseController {
         AdventureDetailsResponseDTO response = adventureBrowseService.getAdventureDetails(
                 adventureId,
                 selectedFromDate,
-                selectedToDate
-        );
+                selectedToDate);
         return ResponseEntity.ok(response);
     }
 
@@ -115,8 +123,7 @@ public class AdventureBrowseController {
         AdventureBookingValidationResponseDTO response = adventureBrowseService.validateAdventureBooking(
                 adventureId,
                 request == null ? null : request.getAge(),
-                request == null ? null : request.getScheduleId()
-        );
+                request == null ? null : request.getScheduleId());
 
         return ResponseEntity.ok(response);
     }

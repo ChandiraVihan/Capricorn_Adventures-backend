@@ -3,5 +3,9 @@ package com.capricorn_adventures.entity;
 public enum BookingStatus {
     PENDING,
     CONFIRMED,
-    CANCELLED
-}
+    CANCELLED,
+    REFUNDED,
+    PARTIALLY_REFUNDED,
+    DISPUTED
+
+    }

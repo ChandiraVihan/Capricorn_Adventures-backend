@@ -10,6 +10,7 @@ import java.util.Optional;
 public interface BookingService {
     Booking createBooking(BookingRequestDTO bookingRequestDTO);
     Optional<Booking> getBookingByReference(String referenceId);
+    Optional<Booking> getBookingById(Long id);
     List<Booking> getUserBookings(User user);
     void cancelBooking(String referenceId);
 }

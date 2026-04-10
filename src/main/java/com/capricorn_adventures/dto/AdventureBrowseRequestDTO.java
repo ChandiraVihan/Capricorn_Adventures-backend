@@ -11,6 +11,11 @@ public class AdventureBrowseRequestDTO {
     private Integer minDurationHours;
     private Integer maxDurationHours;
 
+    private Double userLat;
+    private Double userLng;
+    private String userCity;
+    private String sortBy; // "DISTANCE" or other standard sorting
+
     public Long getCategoryId() {
         return categoryId;
     }
@@ -57,5 +62,37 @@ public class AdventureBrowseRequestDTO {
 
     public void setMaxDurationHours(Integer maxDurationHours) {
         this.maxDurationHours = maxDurationHours;
+    }
+
+    public Double getUserLat() {
+        return userLat;
+    }
+
+    public void setUserLat(Double userLat) {
+        this.userLat = userLat;
+    }
+
+    public Double getUserLng() {
+        return userLng;
+    }
+
+    public void setUserLng(Double userLng) {
+        this.userLng = userLng;
+    }
+
+    public String getUserCity() {
+        return userCity;
+    }
+
+    public void setUserCity(String userCity) {
+        this.userCity = userCity;
+    }
+
+    public String getSortBy() {
+        return sortBy;
+    }
+
+    public void setSortBy(String sortBy) {
+        this.sortBy = sortBy;
     }
 }
