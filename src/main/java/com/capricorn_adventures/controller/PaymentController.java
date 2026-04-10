@@ -69,6 +69,8 @@ public class PaymentController {
         params.put("md5sig", request.getMd5sig());
         params.put("method", request.getMethod());
         params.put("status_message", request.getStatus_message());
+        params.put("custom_1", request.getCustom_1());
+        params.put("custom_2", request.getCustom_2());
         
         webhookService.handleWebhook(params);
         
