@@ -137,7 +137,21 @@ public class PaymentInvoiceService {
         Payment payment = paymentRepo.findById(paymentId)
                 .orElseThrow(() -> new EntityNotFoundException("Payment not found: " + paymentId));
 
-        payment.setStatus(PaymentStatus.REFUNDED);
+        return applyRefund(payment);
+    }
+
+    public Payment recordRefundByBooking(Long bookingId) {
+        Payment payment = paymentRepo.findByBookingId(bookingId)
+                .orElseThrow(() -> new EntityNotFoundException("Payment not found for booking: " + bookingId));
+
+        return applyRefund(payment);
+    }
+
+    private Payment applyRefund(Payment payment) {
+        payment.setStatus(PaymentStatus.SUCCESS.equals(payment.getStatus()) ? PaymentStatus.REFUNDED : payment.getStatus());
+        // If it was already SUCCESS, mark as REFUNDED. If it was FAILED/PENDING, it keeps its status or you might want to handle it differently.
+        // For standard refunds, we assume a SUCCESSful payment is being reverted.
+        payment.setStatus(PaymentStatus.REFUNDED); 
         Payment saved = paymentRepo.save(payment);
 
         // Void the invoice
@@ -147,7 +161,7 @@ public class PaymentInvoiceService {
                     invoiceRepo.save(inv);
                 });
 
-        log.info("Payment {} marked as refunded", paymentId);
+        log.info("Payment {} marked as refunded", payment.getId());
         return saved;
     }
 
