@@ -11,6 +11,8 @@ public class AdventureSummaryDTO {
     private String location;
     private Long categoryId;
     private String categoryName;
+    private Double distanceKm;
+    private String estimatedTravelTime;
 
     public Long getId() {
         return id;
@@ -74,5 +76,21 @@ public class AdventureSummaryDTO {
 
     public void setCategoryName(String categoryName) {
         this.categoryName = categoryName;
+    }
+
+    public Double getDistanceKm() {
+        return distanceKm;
+    }
+
+    public void setDistanceKm(Double distanceKm) {
+        this.distanceKm = distanceKm;
+    }
+
+    public String getEstimatedTravelTime() {
+        return estimatedTravelTime;
+    }
+
+    public void setEstimatedTravelTime(String estimatedTravelTime) {
+        this.estimatedTravelTime = estimatedTravelTime;
     }
 }

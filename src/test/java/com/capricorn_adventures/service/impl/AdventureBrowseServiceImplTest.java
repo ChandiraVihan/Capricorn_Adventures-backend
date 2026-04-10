@@ -23,6 +23,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
+import com.capricorn_adventures.service.DistanceMockService;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -39,11 +40,14 @@ class AdventureBrowseServiceImplTest {
     @Mock
     private AdventureCategoryRepository adventureCategoryRepository;
 
+    @Mock
+    private DistanceMockService distanceMockService;
+
     private AdventureBrowseServiceImpl service;
 
     @BeforeEach
     void setUp() {
-        service = new AdventureBrowseServiceImpl(adventureRepository, adventureCategoryRepository);
+        service = new AdventureBrowseServiceImpl(adventureRepository, adventureCategoryRepository, distanceMockService);
     }
 
     @Test
@@ -70,7 +74,8 @@ class AdventureBrowseServiceImplTest {
         when(adventureCategoryRepository.findSuggestedCategories(1L))
                 .thenReturn(List.of(projection(2L, "Safari", "safari.jpg", 5L)));
 
-        AdventureBrowseResponseDTO response = service.browseAdventures(1L, null, null, null, null, null);
+        AdventureBrowseResponseDTO response = service.browseAdventures(1L, null, null, null, null, null, null, null,
+                null, null);
 
         assertTrue(response.isEmptyState());
         assertEquals("No adventures available", response.getMessage());
@@ -87,7 +92,8 @@ class AdventureBrowseServiceImplTest {
         when(adventureRepository.findBrowseAdventures(null, null, null))
                 .thenReturn(List.of(shortTrip, mediumTrip));
 
-        AdventureBrowseResponseDTO response = service.browseAdventures(null, null, null, null, 3, 5);
+        AdventureBrowseResponseDTO response = service.browseAdventures(null, null, null, null, 3, 5, null, null, null,
+                null);
 
         assertEquals(1, response.getAdventures().size());
         assertEquals("Medium Trip", response.getAdventures().get(0).getName());
@@ -99,8 +105,7 @@ class AdventureBrowseServiceImplTest {
     void browseAdventures_withInvalidDurationRange_throwsException() {
         assertThrows(
                 InvalidAdventureFilterException.class,
-                () -> service.browseAdventures(null, null, null, null, 6, 3)
-        );
+                () -> service.browseAdventures(null, null, null, null, 6, 3, null, null, null, null));
     }
 
     @Test
@@ -120,8 +125,11 @@ class AdventureBrowseServiceImplTest {
                 BigDecimal.TEN,
                 BigDecimal.valueOf(100),
                 null,
-                null
-        );
+                null,
+                null,
+                null,
+                null,
+                null);
 
         verify(adventureRepository).findBrowseAdventures(eq(7L), eq(BigDecimal.TEN), eq(BigDecimal.valueOf(100)));
         assertEquals(1, response.getAdventures().size());
@@ -166,8 +174,7 @@ class AdventureBrowseServiceImplTest {
         AdventureDetailsResponseDTO response = service.getAdventureDetails(
                 21L,
                 LocalDate.of(2030, 1, 10),
-                LocalDate.of(2030, 1, 12)
-        );
+                LocalDate.of(2030, 1, 12));
 
         assertEquals(2, response.getScheduleSlots().size());
         assertTrue(response.getScheduleSlots().stream().anyMatch(s -> !s.isInSelectedRange() && s.isDisabled()));
@@ -208,6 +215,88 @@ class AdventureBrowseServiceImplTest {
         when(adventureRepository.findByIdWithDetails(51L)).thenReturn(Optional.of(adventure));
 
         assertTrue(service.validateAdventureBooking(51L, 22, 88L).isAllowed());
+    }
+
+    @Test
+    void browseAdventures_withUserLatLng_populatesDistance() {
+        Adventure adventure = adventure("Test Adv", 2);
+        adventure.setLocation("Beach");
+        when(adventureRepository.findBrowseAdventures(null, null, null)).thenReturn(List.of(adventure));
+
+        DistanceMockService.DistanceResult result = new DistanceMockService.DistanceResult(10.5, "15 mins");
+        when(distanceMockService.calculateDistance("Beach", 12.3, 45.6, null)).thenReturn(result);
+
+        AdventureBrowseResponseDTO response = service.browseAdventures(null, null, null, null, null, null, 12.3, 45.6,
+                null, null);
+
+        assertEquals(1, response.getAdventures().size());
+        assertEquals(10.5, response.getAdventures().get(0).getDistanceKm());
+        assertEquals("15 mins", response.getAdventures().get(0).getEstimatedTravelTime());
+        assertEquals("12.3,45.6", response.getResolvedLocation());
+        assertEquals(12.3, response.getAppliedFilters().getUserLat());
+        assertEquals(45.6, response.getAppliedFilters().getUserLng());
+    }
+
+    @Test
+    void browseAdventures_withUserCity_populatesDistance() {
+        Adventure adventure = adventure("Test Adv", 2);
+        adventure.setLocation("Beach");
+        when(adventureRepository.findBrowseAdventures(null, null, null)).thenReturn(List.of(adventure));
+
+        DistanceMockService.DistanceResult result = new DistanceMockService.DistanceResult(20.0, "30 mins");
+        when(distanceMockService.calculateDistance("Beach", null, null, "Colombo")).thenReturn(result);
+
+        AdventureBrowseResponseDTO response = service.browseAdventures(null, null, null, null, null, null, null, null,
+                "Colombo", null);
+
+        assertEquals(1, response.getAdventures().size());
+        assertEquals(20.0, response.getAdventures().get(0).getDistanceKm());
+        assertEquals("30 mins", response.getAdventures().get(0).getEstimatedTravelTime());
+        assertEquals("Colombo", response.getResolvedLocation());
+        assertEquals("Colombo", response.getAppliedFilters().getUserCity());
+    }
+
+    @Test
+    void browseAdventures_withNoLocation_distanceIsNull() {
+        Adventure adventure = adventure("Test Adv", 2);
+        adventure.setLocation("Beach");
+        when(adventureRepository.findBrowseAdventures(null, null, null)).thenReturn(List.of(adventure));
+
+        AdventureBrowseResponseDTO response = service.browseAdventures(null, null, null, null, null, null, null, null,
+                null, null);
+
+        assertEquals(1, response.getAdventures().size());
+        assertTrue(response.getAdventures().get(0).getDistanceKm() == null);
+        assertTrue(response.getAdventures().get(0).getEstimatedTravelTime() == null);
+        assertTrue(response.getResolvedLocation() == null);
+    }
+
+    @Test
+    void browseAdventures_sortByDistance_ordersAscendingAndNullsLast() {
+        Adventure adv1 = adventure("Adv1", 2);
+        adv1.setLocation("Loc1");
+        Adventure adv2 = adventure("Adv2", 2);
+        adv2.setLocation("Loc2");
+        Adventure advEmpty = adventure("AdvEmpty", 2);
+        advEmpty.setLocation(null);
+
+        when(adventureRepository.findBrowseAdventures(null, null, null)).thenReturn(List.of(advEmpty, adv1, adv2));
+
+        when(distanceMockService.calculateDistance("Loc1", null, null, "City"))
+                .thenReturn(new DistanceMockService.DistanceResult(50.0, "1 hr"));
+        when(distanceMockService.calculateDistance("Loc2", null, null, "City"))
+                .thenReturn(new DistanceMockService.DistanceResult(10.0, "15 mins"));
+        when(distanceMockService.calculateDistance(null, null, null, "City"))
+                .thenReturn(null);
+
+        AdventureBrowseResponseDTO response = service.browseAdventures(null, null, null, null, null, null, null, null,
+                "City", "DISTANCE");
+
+        assertEquals(3, response.getAdventures().size());
+        assertEquals("Adv2", response.getAdventures().get(0).getName());
+        assertEquals("Adv1", response.getAdventures().get(1).getName());
+        assertEquals("AdvEmpty", response.getAdventures().get(2).getName());
+        assertEquals("DISTANCE", response.getAppliedFilters().getSortBy());
     }
 
     private Adventure adventure(String name, int durationHours) {
