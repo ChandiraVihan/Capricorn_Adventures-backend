@@ -49,7 +49,7 @@ public class PaymentInvoiceService {
         return String.format("INV-%s-%06d", datePrefix, nextVal);
     }
 
-    // AC1 — Store payment record on successful payment
+    // US-17 AC1 — Store payment record on successful payment
     public Payment recordSuccessfulPayment(String bookingReferenceId,
                                            String transactionId,
                                            BigDecimal amount,
@@ -58,7 +58,10 @@ public class PaymentInvoiceService {
         Booking booking = bookingRepo.findByReferenceId(bookingReferenceId)
                 .orElseThrow(() -> new EntityNotFoundException("Booking not found: " + bookingReferenceId));
 
-        Payment payment = new Payment();
+        // Use existing payment record if it exists (e.g. transitioning from PENDING)
+        Payment payment = paymentRepo.findByBookingId(booking.getId())
+                .orElse(new Payment());
+
         payment.setBooking(booking);
         payment.setTransactionId(transactionId);
         payment.setAmount(amount);
@@ -67,10 +70,36 @@ public class PaymentInvoiceService {
         payment.setGatewayMethod(gatewayMethod);
         Payment saved = paymentRepo.save(payment);
 
-        // Auto-generate invoice on successful payment
-        generateInvoice(saved, booking);
+        // Auto-generate invoice on successful payment (if not already generated)
+        if (!invoiceRepo.findByBookingId(booking.getId()).isPresent()) {
+            generateInvoice(saved, booking);
+        }
 
         log.info("Payment recorded and invoice generated for booking {}", bookingReferenceId);
+        return saved;
+    }
+
+    // Support for recording payments that are authorized/pending confirmation
+    public Payment recordPendingPayment(String bookingReferenceId,
+                                        String transactionId,
+                                        BigDecimal amount,
+                                        String currency,
+                                        String gatewayMethod) {
+        Booking booking = bookingRepo.findByReferenceId(bookingReferenceId)
+                .orElseThrow(() -> new EntityNotFoundException("Booking not found: " + bookingReferenceId));
+
+        Payment payment = paymentRepo.findByBookingId(booking.getId())
+                .orElse(new Payment());
+
+        payment.setBooking(booking);
+        payment.setTransactionId(transactionId);
+        payment.setAmount(amount);
+        payment.setCurrency(currency);
+        payment.setStatus(PaymentStatus.PENDING);
+        payment.setGatewayMethod(gatewayMethod);
+        Payment saved = paymentRepo.save(payment);
+
+        log.info("Pending payment recorded for booking {}", bookingReferenceId);
         return saved;
     }
 

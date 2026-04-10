@@ -60,9 +60,11 @@ public class WebhookService {
             throw new WebhookSignatureException("Invalid PayHere webhook signature");
         }
 
-        // 2. Idempotency check
-        if (webhookRepo.findByEventId(paymentId).isPresent()) {
-            log.info("Duplicate PayHere webhook ignored: {}", paymentId);
+        // 2. Idempotency check — allow same paymentId if event type is different (state transition)
+        String eventType = "PAYHERE_STATUS_" + statusCode;
+        if (webhookRepo.findByEventId(paymentId).stream()
+                .anyMatch(e -> e.getEventType().equals(eventType))) {
+            log.info("Duplicate PayHere webhook ignored: {} with type {}", paymentId, eventType);
             return;
         }
 
@@ -80,6 +82,7 @@ public class WebhookService {
             // 2 = Success, 0 = Pending, -1 = Canceled, -2 = Failed, -3 = Chargedback
             switch (statusCode) {
                 case "2"        -> handlePaymentSuccess(orderId, amount, currency, paymentId);
+                case "0", "1"   -> handlePaymentPending(orderId, amount, currency, paymentId);
                 case "-3"       -> handleChargeback(orderId, paymentId, amount, currency);
                 case "-1", "-2" -> handlePaymentFailed(orderId, paymentId, amount, currency);
                 default         -> log.warn("Unhandled PayHere status code: {}", statusCode);
@@ -113,6 +116,18 @@ public class WebhookService {
         );
 
         log.info("Booking {} confirmed, payment & invoice stored", orderId);
+    }
+
+    private void handlePaymentPending(String orderId, String amount,
+                                      String currency, String paymentId) {
+        paymentInvoiceService.recordPendingPayment(
+                orderId,
+                paymentId,
+                new BigDecimal(amount),
+                currency,
+                "PAYHERE"
+        );
+        log.info("Booking {} payment pending/authorized, record stored", orderId);
     }
 
     // US-17 AC4 — store failure reason
