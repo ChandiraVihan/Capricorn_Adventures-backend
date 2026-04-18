@@ -1,8 +1,6 @@
 package com.capricorn_adventures.repository;
 
 import com.capricorn_adventures.entity.AdventureCheckoutBooking;
-import com.capricorn_adventures.entity.AdventureCheckoutStatus;
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -56,10 +54,6 @@ public interface AdventureCheckoutBookingRepository extends JpaRepository<Advent
                                               @Param("userId") java.util.UUID userId);
 
     Optional<AdventureCheckoutBooking> findByBookingReference(String bookingReference);
-
-    List<AdventureCheckoutBooking> findByCreatedAtBetweenAndStatusIn(LocalDateTime from,
-                                                                     LocalDateTime to,
-                                                                     List<AdventureCheckoutStatus> statuses);
     
     @Modifying
     @Transactional

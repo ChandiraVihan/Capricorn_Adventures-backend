@@ -1,7 +1,6 @@
 package com.capricorn_adventures.repository;
 
 import com.capricorn_adventures.entity.AdventureSchedule;
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -27,17 +26,6 @@ public interface AdventureScheduleRepository extends JpaRepository<AdventureSche
             where s.id = :scheduleId
             """)
     Optional<AdventureSchedule> findByIdForUpdateWithAdventure(@Param("scheduleId") Long scheduleId);
-
-                @Query("""
-                                                select s
-                                                from AdventureSchedule s
-                                                join fetch s.adventure a
-                                                where s.startDate >= :startDate
-                                                        and s.startDate < :endDate
-                                                order by s.startDate asc
-                                                """)
-                List<AdventureSchedule> findDashboardSchedulesBetween(@Param("startDate") LocalDateTime startDate,
-                                                                                                                                                                                                                                         @Param("endDate") LocalDateTime endDate);
 
                 @Query("""
                                                 select s

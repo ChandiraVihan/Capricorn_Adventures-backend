@@ -22,12 +22,6 @@ public class AdventureSchedule {
     private LocalDateTime endDate;
     @Column(nullable = false)
     private Integer availableSlots;
-    @Column
-    private Integer totalCapacity;
-    @Column(length = 255)
-    private String assignedGuideName;
-    @Column
-    private Integer checkedInCustomerCount;
     @Column(nullable = false)
     private String status;
 
@@ -61,24 +55,6 @@ public class AdventureSchedule {
     }
     public void setAvailableSlots(Integer availableSlots) {
         this.availableSlots = availableSlots;
-    }
-    public Integer getTotalCapacity() {
-        return totalCapacity;
-    }
-    public void setTotalCapacity(Integer totalCapacity) {
-        this.totalCapacity = totalCapacity;
-    }
-    public String getAssignedGuideName() {
-        return assignedGuideName;
-    }
-    public void setAssignedGuideName(String assignedGuideName) {
-        this.assignedGuideName = assignedGuideName;
-    }
-    public Integer getCheckedInCustomerCount() {
-        return checkedInCustomerCount;
-    }
-    public void setCheckedInCustomerCount(Integer checkedInCustomerCount) {
-        this.checkedInCustomerCount = checkedInCustomerCount;
     }
     public String getStatus() {
         return status;
