@@ -38,8 +38,18 @@ public interface AdventureScheduleRepository extends JpaRepository<AdventureSche
                                                 order by s.startDate asc
                                                 """)
                 List<AdventureSchedule> findRescheduleOptions(@Param("adventureId") Long adventureId,
-                                                                                                                                                                                                        @Param("excludedScheduleId") Long excludedScheduleId,
-                                                                                                                                                                                                        @Param("requiredSlots") Integer requiredSlots,
-                                                                                                                                                                                                        @Param("now") java.time.LocalDateTime now);
+                                                              @Param("excludedScheduleId") Long excludedScheduleId,
+                                                              @Param("requiredSlots") Integer requiredSlots,
+                                                              @Param("now") java.time.LocalDateTime now);
+    @Query("""
+        select s
+        from AdventureSchedule s
+        join fetch s.adventure a
+        where s.startDate >= :from
+          and s.startDate < :to
+        """)
+    List<AdventureSchedule> findDashboardSchedulesBetween(
+            @Param("from") java.time.LocalDateTime from,
+            @Param("to") java.time.LocalDateTime to);
 }
 
