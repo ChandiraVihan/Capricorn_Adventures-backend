@@ -2,6 +2,7 @@ package com.capricorn_adventures.service.impl;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
@@ -16,6 +17,7 @@ import com.capricorn_adventures.dto.RoomServiceOrderStatusUpdateRequestDTO;
 import com.capricorn_adventures.entity.RoomServiceOrder;
 import com.capricorn_adventures.entity.RoomServiceOrderStatus;
 import com.capricorn_adventures.entity.User;
+import com.capricorn_adventures.exception.BadRequestException;
 import com.capricorn_adventures.repository.RoomServiceOrderRepository;
 import com.capricorn_adventures.repository.UserRepository;
 import com.capricorn_adventures.service.NotificationService;
@@ -189,5 +191,63 @@ class RoomServiceOrderServiceImplTest {
 
         verify(userRepository, never()).findByRoleAndStatus(any(), any());
         verify(notificationService, never()).sendRoomServiceStaleOrderAlert(any(), any());
+    }
+
+    @Test
+    void createOrder_rejectsEmptyNormalizedItems() {
+        RoomServiceOrderCreateRequestDTO request = new RoomServiceOrderCreateRequestDTO();
+        request.setRoomNumber(102);
+        request.setFloorNumber(1);
+        request.setItemsOrdered(List.of("   ", ""));
+
+        assertThrows(BadRequestException.class, () -> service.createOrder(request));
+        verify(orderRepository, never()).save(any());
+    }
+
+    @Test
+    void assignStaff_rejectsNonStaffUserRole() {
+        UUID managerId = UUID.randomUUID();
+
+        RoomServiceOrder order = new RoomServiceOrder();
+        order.setId(34L);
+        order.setRoomNumber(210);
+        order.setFloorNumber(2);
+        order.setItemsOrdered(List.of("Soup"));
+        order.setStatus(RoomServiceOrderStatus.RECEIVED);
+        order.setPlacedAt(LocalDateTime.now().minusMinutes(5));
+        order.setLastStatusUpdatedAt(LocalDateTime.now().minusMinutes(5));
+
+        User manager = User.builder()
+                .id(managerId)
+                .email("manager@capricorn.com")
+                .role(User.UserRole.MANAGER)
+                .status(User.UserStatus.ACTIVE)
+                .build();
+
+        RoomServiceOrderAssignmentRequestDTO request = new RoomServiceOrderAssignmentRequestDTO();
+        request.setStaffId(managerId);
+
+        when(orderRepository.findById(34L)).thenReturn(Optional.of(order));
+        when(userRepository.findById(managerId)).thenReturn(Optional.of(manager));
+
+        assertThrows(BadRequestException.class, () -> service.assignStaff(34L, request));
+        verify(pushNotificationService, never()).sendOrderAssignmentNotification(any(), any());
+    }
+
+    @Test
+    void updateStatus_rejectsInvalidTransitionFromReceivedToDelivered() {
+        RoomServiceOrder order = new RoomServiceOrder();
+        order.setId(78L);
+        order.setStatus(RoomServiceOrderStatus.RECEIVED);
+        order.setPlacedAt(LocalDateTime.now().minusMinutes(8));
+        order.setLastStatusUpdatedAt(LocalDateTime.now().minusMinutes(8));
+
+        RoomServiceOrderStatusUpdateRequestDTO request = new RoomServiceOrderStatusUpdateRequestDTO();
+        request.setStatus(RoomServiceOrderStatus.DELIVERED);
+
+        when(orderRepository.findById(78L)).thenReturn(Optional.of(order));
+
+        assertThrows(BadRequestException.class, () -> service.updateStatus(78L, request));
+        verify(orderRepository, never()).save(any());
     }
 }
