@@ -49,7 +49,7 @@ public class PaymentInvoiceService {
         return String.format("INV-%s-%06d", datePrefix, nextVal);
     }
 
-    // AC1 — Store payment record on successful payment
+    // US-17 AC1 — Store payment record on successful payment
     public Payment recordSuccessfulPayment(String bookingReferenceId,
                                            String transactionId,
                                            BigDecimal amount,
@@ -58,7 +58,10 @@ public class PaymentInvoiceService {
         Booking booking = bookingRepo.findByReferenceId(bookingReferenceId)
                 .orElseThrow(() -> new EntityNotFoundException("Booking not found: " + bookingReferenceId));
 
-        Payment payment = new Payment();
+        // Use existing payment record if it exists (e.g. transitioning from PENDING)
+        Payment payment = paymentRepo.findByBookingId(booking.getId())
+                .orElse(new Payment());
+
         payment.setBooking(booking);
         payment.setTransactionId(transactionId);
         payment.setAmount(amount);
@@ -67,10 +70,43 @@ public class PaymentInvoiceService {
         payment.setGatewayMethod(gatewayMethod);
         Payment saved = paymentRepo.save(payment);
 
-        // Auto-generate invoice on successful payment
-        generateInvoice(saved, booking);
+        // Auto-generate invoice on successful payment (if not already generated)
+        if (!invoiceRepo.findByBookingId(booking.getId()).isPresent()) {
+            try {
+                generateInvoice(saved, booking);
+            } catch (Exception e) {
+                log.error("CRITICAL: Failed to generate invoice for booking {}. Sequence might be missing. Error: {}", 
+                    bookingReferenceId, e.getMessage());
+                // We do NOT rethrow here because the payment was successful.
+                // It is better to have a paid booking without an invoice than to crash the payment system.
+            }
+        }
 
         log.info("Payment recorded and invoice generated for booking {}", bookingReferenceId);
+        return saved;
+    }
+
+    // Support for recording payments that are authorized/pending confirmation
+    public Payment recordPendingPayment(String bookingReferenceId,
+                                        String transactionId,
+                                        BigDecimal amount,
+                                        String currency,
+                                        String gatewayMethod) {
+        Booking booking = bookingRepo.findByReferenceId(bookingReferenceId)
+                .orElseThrow(() -> new EntityNotFoundException("Booking not found: " + bookingReferenceId));
+
+        Payment payment = paymentRepo.findByBookingId(booking.getId())
+                .orElse(new Payment());
+
+        payment.setBooking(booking);
+        payment.setTransactionId(transactionId);
+        payment.setAmount(amount);
+        payment.setCurrency(currency);
+        payment.setStatus(PaymentStatus.PENDING);
+        payment.setGatewayMethod(gatewayMethod);
+        Payment saved = paymentRepo.save(payment);
+
+        log.info("Pending payment recorded for booking {}", bookingReferenceId);
         return saved;
     }
 
@@ -101,7 +137,21 @@ public class PaymentInvoiceService {
         Payment payment = paymentRepo.findById(paymentId)
                 .orElseThrow(() -> new EntityNotFoundException("Payment not found: " + paymentId));
 
-        payment.setStatus(PaymentStatus.REFUNDED);
+        return applyRefund(payment);
+    }
+
+    public Payment recordRefundByBooking(Long bookingId) {
+        Payment payment = paymentRepo.findByBookingId(bookingId)
+                .orElseThrow(() -> new EntityNotFoundException("Payment not found for booking: " + bookingId));
+
+        return applyRefund(payment);
+    }
+
+    private Payment applyRefund(Payment payment) {
+        payment.setStatus(PaymentStatus.SUCCESS.equals(payment.getStatus()) ? PaymentStatus.REFUNDED : payment.getStatus());
+        // If it was already SUCCESS, mark as REFUNDED. If it was FAILED/PENDING, it keeps its status or you might want to handle it differently.
+        // For standard refunds, we assume a SUCCESSful payment is being reverted.
+        payment.setStatus(PaymentStatus.REFUNDED); 
         Payment saved = paymentRepo.save(payment);
 
         // Void the invoice
@@ -111,7 +161,7 @@ public class PaymentInvoiceService {
                     invoiceRepo.save(inv);
                 });
 
-        log.info("Payment {} marked as refunded", paymentId);
+        log.info("Payment {} marked as refunded", payment.getId());
         return saved;
     }
 

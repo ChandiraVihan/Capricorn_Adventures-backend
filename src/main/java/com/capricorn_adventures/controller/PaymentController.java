@@ -5,11 +5,15 @@ import com.capricorn_adventures.entity.BookingStatus;
 import com.capricorn_adventures.repository.BookingRepository;
 import com.capricorn_adventures.repository.AdventureCheckoutBookingRepository;
 import com.capricorn_adventures.util.PayHereUtils;
+import com.capricorn_adventures.service.WebhookService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.Map;
+import java.util.HashMap;
 
 @RestController
 @RequestMapping("/api/payment")
@@ -20,6 +24,7 @@ public class PaymentController {
 
     private final BookingRepository bookingRepository;
     private final AdventureCheckoutBookingRepository adventureBookingRepository;
+    private final WebhookService webhookService;
 
     @Value("${payhere.merchant.id}")
     private String merchantId;
@@ -28,9 +33,11 @@ public class PaymentController {
     private String merchantSecret;
 
     public PaymentController(BookingRepository bookingRepository,
-                             AdventureCheckoutBookingRepository adventureBookingRepository) {
+                             AdventureCheckoutBookingRepository adventureBookingRepository,
+                             WebhookService webhookService) {
         this.bookingRepository = bookingRepository;
         this.adventureBookingRepository = adventureBookingRepository;
+        this.webhookService = webhookService;
     }
 
     @GetMapping("/generate-hash")
@@ -51,6 +58,23 @@ public class PaymentController {
 
     @PostMapping("/notify")
     public ResponseEntity<Void> handlePaymentNotification(@ModelAttribute PaymentNotifyRequest request) {
+        // Integrate with the new Finance/Audit system
+        Map<String, String> params = new HashMap<>();
+        params.put("merchant_id", request.getMerchant_id());
+        params.put("order_id", request.getOrder_id());
+        params.put("payment_id", request.getPayment_id());
+        params.put("payhere_amount", request.getPayhere_amount());
+        params.put("payhere_currency", request.getPayhere_currency());
+        params.put("status_code", request.getStatus_code());
+        params.put("md5sig", request.getMd5sig());
+        params.put("method", request.getMethod());
+        params.put("status_message", request.getStatus_message());
+        params.put("custom_1", request.getCustom_1());
+        params.put("custom_2", request.getCustom_2());
+        
+        webhookService.handleWebhook(params);
+        
+        // Old logic (keeping for safety)
         String secretHash = PayHereUtils.getMd5(merchantSecret);
         String rawString = request.getMerchant_id() +
                 request.getOrder_id() +
