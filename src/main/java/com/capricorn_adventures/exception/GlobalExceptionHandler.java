@@ -77,8 +77,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler({
         org.springframework.web.bind.MissingServletRequestParameterException.class,
-        org.springframework.web.method.annotation.MethodArgumentTypeMismatchException.class,
-        IllegalArgumentException.class
+        org.springframework.web.method.annotation.MethodArgumentTypeMismatchException.class
     })
     public ResponseEntity<Map<String, Object>> handleMissingOrInvalidParamsException(Exception ex) {
         Map<String, Object> body = new LinkedHashMap<>();
