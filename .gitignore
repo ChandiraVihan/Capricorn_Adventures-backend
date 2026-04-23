@@ -38,3 +38,4 @@ build/
 .env.*
 !.env.example
 out/
+wiremock.jar
