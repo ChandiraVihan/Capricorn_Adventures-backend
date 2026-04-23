@@ -20,6 +20,7 @@ import com.capricorn_adventures.repository.AdventureCheckoutBookingRepository;
 import com.capricorn_adventures.repository.AdventureRepository;
 import com.capricorn_adventures.repository.AdventureScheduleRepository;
 import com.capricorn_adventures.repository.UserRepository;
+import com.capricorn_adventures.service.CarRentalService;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.Optional;
@@ -45,6 +46,9 @@ class AdventureCheckoutServiceImplTest {
     @Mock
     private UserRepository userRepository;
 
+    @Mock
+    private CarRentalService carRentalService;
+
     private AdventureCheckoutServiceImpl service;
 
     @BeforeEach
@@ -53,7 +57,8 @@ class AdventureCheckoutServiceImplTest {
                 adventureRepository,
                 adventureScheduleRepository,
                 adventureCheckoutBookingRepository,
-                userRepository
+                userRepository,
+                carRentalService
         );
     }
 
@@ -184,3 +189,5 @@ class AdventureCheckoutServiceImplTest {
         return booking;
     }
 }
+
+
