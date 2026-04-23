@@ -11,9 +11,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
-import org.springframework.web.util.UriComponentsBuilder;
 
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -24,42 +22,50 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
+/**
+ * Fetches nearby POIs using the OpenStreetMap Overpass API.
+ * Completely free — no API key or billing account required.
+ */
 @Service
 public class NearbyPoiServiceImpl implements NearbyPoiService {
 
     private static final Logger log = LoggerFactory.getLogger(NearbyPoiServiceImpl.class);
 
     // ── constants ──────────────────────────────────────────────────────────────
-    private static final int    MAX_POIS            = 8;
-    private static final double DEFAULT_RADIUS_KM   = 5.0;
-    private static final double EXPANDED_RADIUS_KM  = 10.0;
-    private static final long   CACHE_TTL_SECONDS   = 24 * 60 * 60; // 24 hours
+    private static final int    MAX_POIS           = 8;
+    private static final double DEFAULT_RADIUS_KM  = 5.0;
+    private static final double EXPANDED_RADIUS_KM = 10.0;
+    private static final long   CACHE_TTL_SECONDS  = 24 * 60 * 60; // 24 hours
 
-    /** Supported POI categories and their display metadata. */
+    private static final String OVERPASS_URL = "https://overpass-api.de/api/interpreter";
+
+    /**
+     * Category metadata:
+     *   key  → [OSM amenity/tourism tag value, emoji icon]
+     * The OSM tag type (amenity vs tourism) is handled in buildOverpassQuery().
+     */
     private static final Map<String, String[]> CATEGORY_META = new LinkedHashMap<>();
     static {
-        // key → [Places API type, emoji icon, display label]
-        CATEGORY_META.put("RESTAURANT",      new String[]{"restaurant",      "🍽️", "Restaurant"});
-        CATEGORY_META.put("VIEWPOINT",       new String[]{"tourist_attraction","🏔️", "Viewpoint"});
-        CATEGORY_META.put("PARKING",         new String[]{"parking",          "🅿️", "Parking"});
-        CATEGORY_META.put("PETROL_STATION",  new String[]{"gas_station",      "⛽", "Petrol Station"});
+        CATEGORY_META.put("RESTAURANT",     new String[]{"restaurant",    "🍽️"});
+        CATEGORY_META.put("VIEWPOINT",      new String[]{"viewpoint",     "🏔️"});
+        CATEGORY_META.put("PARKING",        new String[]{"parking",       "🅿️"});
+        CATEGORY_META.put("PETROL_STATION", new String[]{"fuel",          "⛽"});
     }
 
-    // ── in-memory cache ────────────────────────────────────────────────────────
-    // key: adventureId  value: [expiry-epoch-seconds, List<NearbyPoiDTO>]
+    // ── in-memory 24-hour cache ────────────────────────────────────────────────
     private static final Map<Long, CacheEntry> poiCache = new ConcurrentHashMap<>();
 
     private static class CacheEntry {
         final List<NearbyPoiDTO> pois;
-        final double radiusKm;
-        final boolean radiusExpanded;
-        final long expiresAt;
+        final double             radiusKm;
+        final boolean            radiusExpanded;
+        final long               expiresAt;
 
         CacheEntry(List<NearbyPoiDTO> pois, double radiusKm, boolean radiusExpanded) {
-            this.pois           = pois;
-            this.radiusKm       = radiusKm;
+            this.pois          = pois;
+            this.radiusKm      = radiusKm;
             this.radiusExpanded = radiusExpanded;
-            this.expiresAt      = Instant.now().getEpochSecond() + CACHE_TTL_SECONDS;
+            this.expiresAt     = Instant.now().getEpochSecond() + CACHE_TTL_SECONDS;
         }
 
         boolean isExpired() {
@@ -71,9 +77,6 @@ public class NearbyPoiServiceImpl implements NearbyPoiService {
     private final AdventureRepository adventureRepository;
     private final HttpClient          httpClient;
     private final ObjectMapper        objectMapper;
-
-    @Value("${google.places.api.key:}")
-    private String googleApiKey;
 
     @Autowired
     public NearbyPoiServiceImpl(AdventureRepository adventureRepository) {
@@ -91,128 +94,164 @@ public class NearbyPoiServiceImpl implements NearbyPoiService {
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Adventure not found with id: " + adventureId));
 
-        // Adventures must have coordinates stored as "lat,lng" in the location field
         double[] coords = parseCoordinates(adventure);
 
-        // ── serve from cache if still valid ───────────────────────────────────
+        // serve from cache if still valid
         CacheEntry cached = poiCache.get(adventureId);
         if (cached != null && !cached.isExpired()) {
             log.debug("POI cache hit for adventure {}", adventureId);
             return buildResponse(cached.pois, cached.radiusKm, cached.radiusExpanded, categoryFilter);
         }
 
-        // ── fetch fresh data ──────────────────────────────────────────────────
-        log.debug("POI cache miss for adventure {} – fetching from API", adventureId);
+        // fetch fresh data at default radius
+        log.debug("POI cache miss for adventure {} – fetching from Overpass API", adventureId);
         List<NearbyPoiDTO> pois = fetchPois(coords[0], coords[1], DEFAULT_RADIUS_KM);
 
-        boolean expanded = false;
+        boolean expanded  = false;
         double  usedRadius = DEFAULT_RADIUS_KM;
 
+        // auto-expand if nothing found within 5 km
         if (pois.isEmpty()) {
             log.debug("No POIs within {} km for adventure {} – expanding to {} km",
                     DEFAULT_RADIUS_KM, adventureId, EXPANDED_RADIUS_KM);
-            pois      = fetchPois(coords[0], coords[1], EXPANDED_RADIUS_KM);
-            expanded  = true;
+            pois       = fetchPois(coords[0], coords[1], EXPANDED_RADIUS_KM);
+            expanded   = true;
             usedRadius = EXPANDED_RADIUS_KM;
         }
 
-        // cache the full (unfiltered) list
         poiCache.put(adventureId, new CacheEntry(pois, usedRadius, expanded));
-
         return buildResponse(pois, usedRadius, expanded, categoryFilter);
     }
 
     // ── private helpers ────────────────────────────────────────────────────────
 
     /**
-     * Fetches POIs for all supported categories, merges them, caps at MAX_POIS,
-     * and returns the result sorted by distance.
+     * Calls Overpass API once with a single query that fetches all four
+     * category types in one round-trip, then parses and sorts the results.
      */
     private List<NearbyPoiDTO> fetchPois(double lat, double lng, double radiusKm) {
-        List<NearbyPoiDTO> all = new ArrayList<>();
-
-        for (Map.Entry<String, String[]> entry : CATEGORY_META.entrySet()) {
-            String   category    = entry.getKey();
-            String[] meta        = entry.getValue();
-            String   placesType  = meta[0];
-            String   icon        = meta[1];
-
-            try {
-                List<NearbyPoiDTO> results = callPlacesApi(lat, lng, radiusKm, placesType, category, icon);
-                all.addAll(results);
-            } catch (Exception e) {
-                log.warn("Failed to fetch POIs for category {} from Google Places: {}", category, e.getMessage());
-            }
-        }
-
-        // Sort by distance and cap
-        return all.stream()
-                .sorted(Comparator.comparingDouble(NearbyPoiDTO::getDistanceKm))
-                .limit(MAX_POIS)
-                .collect(Collectors.toList());
-    }
-
-    /**
-     * Calls the Google Places Nearby Search API for a single place type.
-     */
-    private List<NearbyPoiDTO> callPlacesApi(double lat, double lng, double radiusKm,
-                                             String placesType, String category, String icon)
-            throws Exception {
-
         int radiusMeters = (int) (radiusKm * 1000);
+        String query = buildOverpassQuery(lat, lng, radiusMeters);
 
-        String url = UriComponentsBuilder
-                .fromHttpUrl("https://maps.googleapis.com/maps/api/place/nearbysearch/json")
-                .queryParam("location", lat + "," + lng)
-                .queryParam("radius",   radiusMeters)
-                .queryParam("type",     placesType)
-                .queryParam("key",      googleApiKey)
-                .toUriString();
+        try {
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(OVERPASS_URL))
+                    .header("Content-Type", "application/x-www-form-urlencoded")
+                    .POST(HttpRequest.BodyPublishers.ofString("data=" +
+                            java.net.URLEncoder.encode(query, java.nio.charset.StandardCharsets.UTF_8)))
+                    .build();
 
-        HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(url))
-                .GET()
-                .build();
+            HttpResponse<String> response =
+                    httpClient.send(request, HttpResponse.BodyHandlers.ofString());
 
-        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+            if (response.statusCode() != 200) {
+                log.warn("Overpass API returned HTTP {}", response.statusCode());
+                return Collections.emptyList();
+            }
 
-        if (response.statusCode() != 200) {
-            throw new RuntimeException("Google Places API returned HTTP " + response.statusCode());
+            return parseOverpassResponse(response.body(), lat, lng);
+
+        } catch (Exception e) {
+            log.warn("Overpass API call failed: {}", e.getMessage());
+            return Collections.emptyList();
         }
-
-        return parsePlacesResponse(response.body(), lat, lng, category, icon);
     }
 
     /**
-     * Parses a Google Places Nearby Search JSON response into {@link NearbyPoiDTO} objects.
+     * Builds an Overpass QL query that retrieves all four POI types in one request.
+     *
+     * OSM tags used:
+     *   amenity=restaurant   → RESTAURANT
+     *   tourism=viewpoint    → VIEWPOINT
+     *   amenity=parking      → PARKING
+     *   amenity=fuel         → PETROL_STATION
      */
-    private List<NearbyPoiDTO> parsePlacesResponse(String json, double originLat, double originLng,
-                                                   String category, String icon) throws Exception {
-        JsonNode root    = objectMapper.readTree(json);
-        JsonNode results = root.path("results");
+    private String buildOverpassQuery(double lat, double lng, int radiusMeters) {
+        return "[out:json][timeout:10];\n" +
+                "(\n" +
+                "  node[amenity=restaurant](around:" + radiusMeters + "," + lat + "," + lng + ");\n" +
+                "  node[tourism=viewpoint](around:"  + radiusMeters + "," + lat + "," + lng + ");\n" +
+                "  node[amenity=parking](around:"   + radiusMeters + "," + lat + "," + lng + ");\n" +
+                "  node[amenity=fuel](around:"      + radiusMeters + "," + lat + "," + lng + ");\n" +
+                ");\n" +
+                "out body 40;";   // limit raw results to 40 nodes
+    }
+
+    /**
+     * Parses the Overpass JSON response into {@link NearbyPoiDTO} objects.
+     *
+     * Each element carries OSM tags; we derive the category from those tags.
+     */
+    private List<NearbyPoiDTO> parseOverpassResponse(String json,
+                                                     double originLat,
+                                                     double originLng) throws Exception {
+        JsonNode root     = objectMapper.readTree(json);
+        JsonNode elements = root.path("elements");
 
         List<NearbyPoiDTO> pois = new ArrayList<>();
 
-        for (JsonNode place : results) {
+        for (JsonNode el : elements) {
+            double poiLat = el.path("lat").asDouble();
+            double poiLng = el.path("lon").asDouble();
+            JsonNode tags = el.path("tags");
+
+            String category = resolveCategory(tags);
+            if (category == null) continue; // skip unrecognised tags
+
+            String name = tags.path("name").asText("").trim();
+            if (name.isEmpty()) name = friendlyLabel(category);
+
+            String[] meta = CATEGORY_META.get(category);
+            String   icon = meta[1];
+
             NearbyPoiDTO poi = new NearbyPoiDTO();
-
-            String placeId = place.path("place_id").asText();
-            double poiLat  = place.path("geometry").path("location").path("lat").asDouble();
-            double poiLng  = place.path("geometry").path("location").path("lng").asDouble();
-
-            poi.setPlaceId(placeId);
-            poi.setName(place.path("name").asText("Unknown"));
+            poi.setPlaceId("osm-" + el.path("id").asText());
+            poi.setName(name);
             poi.setCategory(category);
             poi.setCategoryIcon(icon);
             poi.setLatitude(poiLat);
             poi.setLongitude(poiLng);
             poi.setDistanceKm(haversineKm(originLat, originLng, poiLat, poiLng));
-            poi.setGoogleMapsUrl(buildMapsUrl(poiLat, poiLng, place.path("name").asText("")));
+            poi.setGoogleMapsUrl(buildMapsUrl(poiLat, poiLng, name));
 
             pois.add(poi);
         }
 
-        return pois;
+        // Sort by distance and cap at MAX_POIS
+        return pois.stream()
+                .sorted(Comparator.comparingDouble(NearbyPoiDTO::getDistanceKm))
+                .limit(MAX_POIS)
+                .collect(Collectors.toList());
+    }
+
+    /** Maps OSM tags to our internal category key. */
+    private String resolveCategory(JsonNode tags) {
+        String amenity = tags.path("amenity").asText("");
+        String tourism = tags.path("tourism").asText("");
+
+        if ("restaurant".equals(amenity) || "cafe".equals(amenity) || "fast_food".equals(amenity)) {
+            return "RESTAURANT";
+        }
+        if ("viewpoint".equals(tourism)) {
+            return "VIEWPOINT";
+        }
+        if ("parking".equals(amenity)) {
+            return "PARKING";
+        }
+        if ("fuel".equals(amenity)) {
+            return "PETROL_STATION";
+        }
+        return null;
+    }
+
+    private String friendlyLabel(String category) {
+        return switch (category) {
+            case "RESTAURANT"     -> "Restaurant";
+            case "VIEWPOINT"      -> "Viewpoint";
+            case "PARKING"        -> "Parking";
+            case "PETROL_STATION" -> "Petrol Station";
+            default               -> category;
+        };
     }
 
     /** Applies optional category filter and wraps into the response DTO. */
@@ -243,10 +282,7 @@ public class NearbyPoiServiceImpl implements NearbyPoiService {
 
     /**
      * Parses the adventure's location field.
-     * Expects the format {@code "lat,lng"} (e.g. {@code "6.9271,79.8612"}).
-     * Falls back to geocoding the location name string if coordinates are absent.
-     *
-     * @throws ResourceNotFoundException when no usable coordinates can be found
+     * Expects {@code "lat,lng"} e.g. {@code "6.9271,79.8612"}.
      */
     private double[] parseCoordinates(Adventure adventure) {
         String location = adventure.getLocation();
@@ -260,22 +296,21 @@ public class NearbyPoiServiceImpl implements NearbyPoiService {
                     if (lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
                         return new double[]{lat, lng};
                     }
-                } catch (NumberFormatException ignored) {
-                    // location is a place name, not coordinates – fall through
-                }
+                } catch (NumberFormatException ignored) {}
             }
         }
 
         throw new ResourceNotFoundException(
                 "Adventure " + adventure.getId() +
                         " does not have valid coordinates. " +
-                        "Store the start point as \"lat,lng\" in the location field to enable nearby POIs.");
+                        "Store the start point as \"lat,lng\" in the location field.");
     }
 
-    /** Google Maps directions deep-link. */
+    /** Google Maps directions deep-link (still works without a key). */
     private String buildMapsUrl(double lat, double lng, String name) {
         return "https://www.google.com/maps/dir/?api=1&destination=" + lat + "," + lng
-                + "&destination_place_name=" + java.net.URLEncoder.encode(name, java.nio.charset.StandardCharsets.UTF_8);
+                + "&destination_place_name="
+                + java.net.URLEncoder.encode(name, java.nio.charset.StandardCharsets.UTF_8);
     }
 
     /** Haversine formula – returns distance in km. */
@@ -283,7 +318,7 @@ public class NearbyPoiServiceImpl implements NearbyPoiService {
         final double R = 6371.0;
         double dLat = Math.toRadians(lat2 - lat1);
         double dLng = Math.toRadians(lng2 - lng1);
-        double a = Math.sin(dLat / 2) * Math.sin(dLat / 2)
+        double a    = Math.sin(dLat / 2) * Math.sin(dLat / 2)
                 + Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2))
                 * Math.sin(dLng / 2) * Math.sin(dLng / 2);
         return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));

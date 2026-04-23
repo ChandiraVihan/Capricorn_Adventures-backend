@@ -8,7 +8,8 @@ import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.stereotype.Service;
 import org.springframework.beans.factory.annotation.Value;
-
+import com.capricorn_adventures.entity.RoomServiceOrder; 
+import java.util.List;
 @Service
 public class NotificationService {
 
@@ -48,6 +49,28 @@ public class NotificationService {
             log.info("Refund confirmation sent to: {}", booking.getUser().getEmail());
         } catch (Exception e) {
             log.error("Failed to send refund email", e);
+        }
+    }
+    public void sendRoomServiceStaleOrderAlert(List<String> managerEmails, RoomServiceOrder order) {
+        if (managerEmails == null || managerEmails.isEmpty()) {
+            log.warn("No managers found to alert for stale order: {}", order.getId());
+            return;
+        }
+
+        SimpleMailMessage message = new SimpleMailMessage();
+        message.setFrom(from);
+        message.setTo(managerEmails.toArray(new String[0]));
+        message.setSubject("URGENT: Stale Room Service Order - Room " + order.getRoomNumber());
+        message.setText("Alert: The following order has been pending for over 20 minutes:\n\n" +
+                        "Order ID: " + order.getId() + "\n" +
+                        "Room: " + order.getRoomNumber() + "\n" +
+                        "Items: " + String.join(", ", order.getItemsOrdered()));
+
+        try {
+            mailSender.send(message);
+            log.info("Stale order alert sent for order {} to managers", order.getId());
+        } catch (Exception e) {
+            log.error("Failed to send stale order alert email", e);
         }
     }
 

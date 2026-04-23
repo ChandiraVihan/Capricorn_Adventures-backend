@@ -16,6 +16,7 @@ import com.capricorn_adventures.repository.AdventureRepository;
 import com.capricorn_adventures.repository.AdventureScheduleRepository;
 import com.capricorn_adventures.repository.UserRepository;
 import com.capricorn_adventures.service.AdventureCheckoutService;
+import com.capricorn_adventures.service.CarRentalService;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.Arrays;
@@ -34,16 +35,19 @@ public class AdventureCheckoutServiceImpl implements AdventureCheckoutService {
     private final AdventureScheduleRepository adventureScheduleRepository;
     private final AdventureCheckoutBookingRepository adventureCheckoutBookingRepository;
     private final UserRepository userRepository;
+    private final CarRentalService carRentalService;
 
     @Autowired
     public AdventureCheckoutServiceImpl(AdventureRepository adventureRepository,
                                         AdventureScheduleRepository adventureScheduleRepository,
                                         AdventureCheckoutBookingRepository adventureCheckoutBookingRepository,
-                                        UserRepository userRepository) {
+                                        UserRepository userRepository,
+                                        CarRentalService carRentalService) {
         this.adventureRepository = adventureRepository;
         this.adventureScheduleRepository = adventureScheduleRepository;
         this.adventureCheckoutBookingRepository = adventureCheckoutBookingRepository;
         this.userRepository = userRepository;
+        this.carRentalService = carRentalService;
     }
 
     @Override
@@ -170,6 +174,9 @@ public class AdventureCheckoutServiceImpl implements AdventureCheckoutService {
 
         adventureScheduleRepository.save(lockedSchedule);
         adventureCheckoutBookingRepository.save(booking);
+
+        // AC6 – confirm car rental add-on and send separate rental confirmation email
+        carRentalService.confirmRentalAfterPayment(checkoutId);
 
         return paymentSuccessResponse(booking);
     }

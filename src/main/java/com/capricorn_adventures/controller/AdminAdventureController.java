@@ -26,28 +26,28 @@ public class AdminAdventureController {
     }
 
     @PostMapping
-    @PreAuthorize("hasAuthority('ADMIN') or hasRole('ADMIN')")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Adventure> createAdventure(@Valid @RequestBody CreateAdventureRequestDTO request) {
         Adventure created = adminAdventureService.createAdventure(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(created);
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasAuthority('ADMIN') or hasRole('ADMIN')")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Adventure> updateAdventure(@PathVariable Long id, @Valid @RequestBody UpdateAdventureRequestDTO request) {
         Adventure updated = adminAdventureService.updateAdventure(id, request);
         return ResponseEntity.ok(updated);
     }
 
     @PostMapping("/schedules")
-    @PreAuthorize("hasAuthority('ADMIN') or hasRole('ADMIN')")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<AdventureSchedule> createAdventureSchedule(@Valid @RequestBody CreateAdventureScheduleRequestDTO request) {
         AdventureSchedule created = adminAdventureService.createAdventureSchedule(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(created);
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAuthority('ADMIN') or hasRole('ADMIN')")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Void> deleteAdventure(@PathVariable Long id) {
         adminAdventureService.deleteAdventure(id);
         return ResponseEntity.noContent().build();
