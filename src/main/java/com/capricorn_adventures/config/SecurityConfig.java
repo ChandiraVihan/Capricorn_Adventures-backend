@@ -86,7 +86,53 @@ public class SecurityConfig {
 
         return http.build();
     }
-
+    @Bean
+    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+        http
+            .csrf(AbstractHttpConfigurer::disable)
+            .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+            .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+            
+            // Exception handling for unauthorized access
+            .exceptionHandling(ex -> ex
+                .authenticationEntryPoint((request, response, authException) -> {
+                    response.sendError(401, "Unauthorized");
+                })
+            )
+    
+            .authorizeHttpRequests(auth -> auth
+                // 1. Explicitly public routes
+                .requestMatchers(
+                   "/api/auth/register",
+                    "/api/auth/login",
+                    "/api/auth/refresh",
+                    "/api/auth/forgot-password",
+                    "/api/auth/reset-password",
+                    "/api/v1/rooms/search",
+                    "/api/v1/rooms/**",
+                    "/oauth2/**",
+                    "/login/oauth2/**",
+                    "/api/webhooks/**"
+                ).permitAll()
+    
+                // 2. Role-specific protected routes
+                .requestMatchers("/api/finance/**").hasRole("OWNER")
+                .requestMatchers("/api/manager/operations/**").hasRole("MANAGER")
+    
+                // 3. Fallback: Authenticated for any other request
+                .anyRequest().authenticated()
+            )
+    
+            .oauth2Login(oauth -> oauth
+                .authorizationEndpoint(a -> a.baseUri("/oauth2/authorize"))
+                .redirectionEndpoint(r -> r.baseUri("/oauth2/callback/*"))
+                .successHandler(oAuthHandler)
+                .failureHandler(oAuthFailureHandler)
+            )
+            .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
+    
+        return http.build();
+    }
     @Bean
     public PasswordEncoder passwordEncoder() {
         // Cost factor 12 as per DB design
