@@ -23,4 +23,11 @@ public class ManagerOperationsDashboardController {
     public ResponseEntity<ManagerOperationsDashboardResponseDTO> getDashboard() {
         return ResponseEntity.ok(dashboardService.getDashboard());
     }
+
+        @GetMapping("/shift-overview")
+    @PreAuthorize("hasRole('MANAGER') or hasRole('OWNER') or hasRole('ADMIN')")
+    public ResponseEntity<StaffShiftOverviewResponseDTO> getShiftOverview() {
+        return ResponseEntity.ok(staffShiftOverviewService.getCurrentShiftOverview());
+    }
+    
 }
