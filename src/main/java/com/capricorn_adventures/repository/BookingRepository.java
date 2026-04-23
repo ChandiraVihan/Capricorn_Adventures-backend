@@ -24,10 +24,6 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
 
     List<Booking> findByUserOrderByCheckInDateDesc(User user);
 
-       List<Booking> findByCheckInDateBetweenAndStatusIn(LocalDate from,
-                                                                                             LocalDate to,
-                                                                                             List<BookingStatus> statuses);
-
     @Query("SELECT COUNT(b) > 0 FROM Booking b WHERE b.room.id = :roomId " +
            "AND b.status IN :statuses " +
            "AND (b.checkInDate < :checkOutDate AND b.checkOutDate > :checkInDate)")
@@ -35,4 +31,8 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
                            @Param("statuses") List<BookingStatus> statuses,
                            @Param("checkInDate") LocalDate checkInDate,
                            @Param("checkOutDate") LocalDate checkOutDate);
+    List<Booking> findByCheckInDateBetweenAndStatusIn(
+            LocalDate from,
+            LocalDate to,
+            List<BookingStatus> statuses);
 }

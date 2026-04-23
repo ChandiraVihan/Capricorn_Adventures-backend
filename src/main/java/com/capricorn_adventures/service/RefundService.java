@@ -18,22 +18,19 @@ public class RefundService {
     private final PayHereGatewayService payHereGatewayService;
     private final CancellationPolicyService cancellationPolicyService;
     private final NotificationService notificationService;
-    private final PaymentInvoiceService paymentInvoiceService;
 
     public RefundService(BookingRepository bookingRepository,
                          AdventureCheckoutBookingRepository adventureBookingRepository,
                          RefundTransactionRepository refundTransactionRepository,
                          PayHereGatewayService payHereGatewayService,
                          CancellationPolicyService cancellationPolicyService,
-                         NotificationService notificationService,
-                         PaymentInvoiceService paymentInvoiceService) {
+                         NotificationService notificationService) {
         this.bookingRepository = bookingRepository;
         this.adventureBookingRepository = adventureBookingRepository;
         this.refundTransactionRepository = refundTransactionRepository;
         this.payHereGatewayService = payHereGatewayService;
         this.cancellationPolicyService = cancellationPolicyService;
         this.notificationService = notificationService;
-        this.paymentInvoiceService = paymentInvoiceService;
     }
 
     @Transactional
@@ -80,14 +77,6 @@ public class RefundService {
         booking.setCancelledAt(LocalDateTime.now());
         booking.setCancellationReason(reason);
         bookingRepository.save(booking);
-
-        // Update Finance System
-        try {
-            paymentInvoiceService.recordRefundByBooking(bookingId);
-        } catch (Exception e) {
-            // Log but don't fail the refund if finance update fails
-            // It might already be marked as refunded or payment record might not exist
-        }
 
         try {
             notificationService.sendRefundConfirmation(booking);
@@ -136,15 +125,6 @@ public class RefundService {
         booking.setCancelledAt(LocalDateTime.now());
         booking.setCancellationReason(reason);
         adventureBookingRepository.save(booking);
-
-        // Update Finance System
-        try {
-            // Adventure bookings currently don't use the standard Payment table in the same way?
-            // Actually, if there is a payment record for it, we should update it.
-            paymentInvoiceService.recordRefundByBooking(bookingId);
-        } catch (Exception e) {
-            // Log but don't fail
-        }
 
         try {
             notificationService.sendRefundConfirmation(booking);

@@ -26,7 +26,7 @@ public class JwtUtil {
     private final long refreshTokenExpiry;
 
     public JwtUtil(
-        @Value("${app.jwt.secret}") String secret,
+            @Value("${app.jwt.secret}")String secret,
         @Value("${app.jwt.access-token-expiry}") long accessTokenExpiry,
         @Value("${app.jwt.refresh-token-expiry}") long refreshTokenExpiry
     ) {
