@@ -16,17 +16,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-/**
- * Thin HTTP client for the external car rental partner API.
- *
- * AC4 – if the API call throws any exception (timeout, 5xx, unreachable)
- * this service returns an empty Optional, and the caller falls back to the
- * partner website link.
- *
- * AC7 – currency conversion is applied here before returning results.
- *       In production, inject a real FX rate provider; the stub below
- *       uses a hardcoded LKR/USD rate as a placeholder.
- */
 @Service
 public class CarRentalPartnerClient {
 
@@ -50,13 +39,6 @@ public class CarRentalPartnerClient {
         this.restTemplate = restTemplate;
     }
 
-    // ── Public API ─────────────────────────────────────────────────────────
-
-    /**
-     * Search for available vehicles.
-     *
-     * @return list of vehicles, or empty list if the partner API is unavailable (AC4)
-     */
     public List<CarRentalVehicleDTO> searchAvailableVehicles(String pickupLocation,
                                                              LocalDate pickupDate,
                                                              LocalDate returnDate,
@@ -67,136 +49,89 @@ public class CarRentalPartnerClient {
                     vehicleCategory, preferredCurrency);
         } catch (Exception ex) {
             log.warn("Car rental partner API unavailable: {}", ex.getMessage());
-            return List.of(); // triggers fallback in service layer (AC4)
+            return List.of();
         }
     }
 
-    /**
-     * Reserve a vehicle at the partner.
-     * Returns the partner's reservation ID, or null if the call fails.
-     */
     public String createReservation(String partnerVehicleId,
                                     String pickupLocation,
                                     LocalDate pickupDate,
                                     LocalDate returnDate) {
-        try {
-            String url = baseUrl + "/reservations";
-
-            HttpHeaders headers = buildHeaders();
-            Map<String, Object> body = Map.of(
-                    "vehicleId",      partnerVehicleId,
-                    "pickupLocation", pickupLocation,
-                    "pickupDate",     pickupDate.toString(),
-                    "returnDate",     returnDate.toString()
-            );
-
-            HttpEntity<Map<String, Object>> request = new HttpEntity<>(body, headers);
-            ResponseEntity<Map> response = restTemplate.postForEntity(url, request, Map.class);
-
-            if (response.getStatusCode() == HttpStatus.OK
-                    || response.getStatusCode() == HttpStatus.CREATED) {
-                Object reservationId = response.getBody() != null
-                        ? response.getBody().get("reservationId") : null;
-                return reservationId != null ? reservationId.toString() : null;
-            }
-        } catch (Exception ex) {
-            log.error("Failed to create rental reservation for vehicle {}: {}",
-                    partnerVehicleId, ex.getMessage());
-        }
-        return null;
+        // Mock reservation ID since partner API is not implemented
+        String mockReservationId = "RES-" + partnerVehicleId + "-" + System.currentTimeMillis();
+        log.info("Mock reservation created: {}", mockReservationId);
+        return mockReservationId;
     }
 
-    /**
-     * Release/cancel a reservation at the partner (AC5).
-     * Returns true if release was acknowledged.
-     */
     public boolean releaseReservation(String partnerReservationId) {
-        try {
-            String url = baseUrl + "/reservations/" + partnerReservationId + "/release";
-            HttpEntity<Void> request = new HttpEntity<>(buildHeaders());
-            ResponseEntity<Void> response = restTemplate.exchange(url, HttpMethod.DELETE,
-                    request, Void.class);
-            return response.getStatusCode().is2xxSuccessful();
-        } catch (Exception ex) {
-            log.error("Failed to release rental reservation {}: {}",
-                    partnerReservationId, ex.getMessage());
-            return false;
-        }
+        // Mock release since partner API is not implemented
+        log.info("Mock reservation released: {}", partnerReservationId);
+        return true;
     }
 
-    /** Partner website URL – used in AC4 fallback response. */
     public String getPartnerWebsiteUrl() { return partnerWebsiteUrl; }
 
     public String getPartnerName() { return partnerName; }
 
-    // ── Private helpers ────────────────────────────────────────────────────
-
-    @SuppressWarnings("unchecked")
     private List<CarRentalVehicleDTO> callPartnerSearchApi(String pickupLocation,
                                                            LocalDate pickupDate,
                                                            LocalDate returnDate,
                                                            String vehicleCategory,
                                                            String preferredCurrency) {
-        String url = baseUrl + "/vehicles/available"
-                + "?pickupLocation=" + pickupLocation
-                + "&pickupDate=" + pickupDate
-                + "&returnDate=" + returnDate
-                + (vehicleCategory != null ? "&category=" + vehicleCategory : "");
-
-        HttpEntity<Void> request = new HttpEntity<>(buildHeaders());
-        ResponseEntity<List> response = restTemplate.exchange(url, HttpMethod.GET,
-                request, List.class);
-
-        if (response.getStatusCode() != HttpStatus.OK || response.getBody() == null) {
-            return List.of();
-        }
-
         long rentalDays = ChronoUnit.DAYS.between(pickupDate, returnDate);
         if (rentalDays <= 0) rentalDays = 1;
 
-        List<CarRentalVehicleDTO> results = new ArrayList<>();
-        for (Object item : response.getBody()) {
-            Map<String, Object> raw = (Map<String, Object>) item;
-            CarRentalVehicleDTO dto = mapVehicle(raw, rentalDays, preferredCurrency);
-            results.add(dto);
-        }
-        return results;
+        List<CarRentalVehicleDTO> mockVehicles = new ArrayList<>();
+
+        CarRentalVehicleDTO v1 = new CarRentalVehicleDTO();
+        v1.setPartnerVehicleId("V001");
+        v1.setVehicleName("Toyota Corolla");
+        v1.setVehicleCategory("SEDAN");
+        v1.setVehicleImageUrl("https://i.postimg.cc/MH2zLdSZ/Rathu-olu-1-700x450.jpg");
+        v1.setPartnerName(partnerName);
+        v1.setPartnerWebsiteUrl(partnerWebsiteUrl);
+        v1.setPricePerDay(convertCurrency(new BigDecimal("5000.00"), "LKR", preferredCurrency));
+        v1.setCurrency(preferredCurrency);
+        v1.setRentalDays((int) rentalDays);
+        v1.setTotalPrice(v1.getPricePerDay().multiply(BigDecimal.valueOf(rentalDays)));
+        mockVehicles.add(v1);
+
+        CarRentalVehicleDTO v2 = new CarRentalVehicleDTO();
+        v2.setPartnerVehicleId("V002");
+        v2.setVehicleName("Honda Vezel");
+        v2.setVehicleCategory("SUV");
+        v2.setVehicleImageUrl("https://i.postimg.cc/MH2zLdSZ/Rathu-olu-1-700x450.jpg");
+        v2.setPartnerName(partnerName);
+        v2.setPartnerWebsiteUrl(partnerWebsiteUrl);
+        v2.setPricePerDay(convertCurrency(new BigDecimal("7500.00"), "LKR", preferredCurrency));
+        v2.setCurrency(preferredCurrency);
+        v2.setRentalDays((int) rentalDays);
+        v2.setTotalPrice(v2.getPricePerDay().multiply(BigDecimal.valueOf(rentalDays)));
+        mockVehicles.add(v2);
+
+        CarRentalVehicleDTO v3 = new CarRentalVehicleDTO();
+        v3.setPartnerVehicleId("V003");
+        v3.setVehicleName("Mercedes C-Class");
+        v3.setVehicleCategory("LUXURY");
+        v3.setVehicleImageUrl("https://i.postimg.cc/MH2zLdSZ/Rathu-olu-1-700x450.jpg");
+        v3.setPartnerName(partnerName);
+        v3.setPartnerWebsiteUrl(partnerWebsiteUrl);
+        v3.setPricePerDay(convertCurrency(new BigDecimal("15000.00"), "LKR", preferredCurrency));
+        v3.setCurrency(preferredCurrency);
+        v3.setRentalDays((int) rentalDays);
+        v3.setTotalPrice(v3.getPricePerDay().multiply(BigDecimal.valueOf(rentalDays)));
+        mockVehicles.add(v3);
+
+        return mockVehicles;
     }
 
-    private CarRentalVehicleDTO mapVehicle(Map<String, Object> raw,
-                                           long rentalDays,
-                                           String preferredCurrency) {
-        CarRentalVehicleDTO dto = new CarRentalVehicleDTO();
-        dto.setPartnerVehicleId(str(raw, "id"));
-        dto.setVehicleName(str(raw, "name"));
-        dto.setVehicleCategory(str(raw, "category"));
-        dto.setVehicleImageUrl(str(raw, "imageUrl"));
-        dto.setPartnerName(partnerName);
-        dto.setPartnerWebsiteUrl(partnerWebsiteUrl);
-
-        // The partner returns prices in its native currency (LKR assumed here)
-        BigDecimal rawPricePerDay = new BigDecimal(str(raw, "pricePerDay"));
-        BigDecimal convertedPricePerDay = convertCurrency(rawPricePerDay, "LKR", preferredCurrency);
-
-        dto.setPricePerDay(convertedPricePerDay);
-        dto.setCurrency(preferredCurrency);
-        dto.setRentalDays((int) rentalDays);
-        dto.setTotalPrice(convertedPricePerDay.multiply(BigDecimal.valueOf(rentalDays)));
-        return dto;
-    }
-
-    /**
-     * AC7 – currency conversion.
-     * Replace this stub with a real FX service (e.g. Open Exchange Rates).
-     */
     private BigDecimal convertCurrency(BigDecimal amount, String from, String to) {
         if (from.equalsIgnoreCase(to)) return amount;
-        // Stub: 1 USD = 310 LKR, 1 EUR = 335 LKR
         double lkrAmount = amount.doubleValue();
         double result = switch (to.toUpperCase()) {
             case "USD" -> lkrAmount / 310.0;
             case "EUR" -> lkrAmount / 335.0;
-            default    -> lkrAmount; // fallback: no conversion
+            default    -> lkrAmount;
         };
         return BigDecimal.valueOf(result).setScale(2, RoundingMode.HALF_UP);
     }
