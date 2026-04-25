@@ -12,6 +12,7 @@ import com.capricorn_adventures.entity.StaffDepartment;
 import com.capricorn_adventures.entity.StaffShift;
 import com.capricorn_adventures.entity.User;
 import com.capricorn_adventures.repository.StaffShiftRepository;
+import com.capricorn_adventures.repository.UserRepository;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -31,11 +32,14 @@ class StaffShiftOverviewServiceImplTest {
     @Mock
     private StaffShiftRepository staffShiftRepository;
 
+        @Mock
+        private UserRepository userRepository;
+
     private StaffShiftOverviewServiceImpl service;
 
     @BeforeEach
     void setUp() {
-        service = new StaffShiftOverviewServiceImpl(staffShiftRepository);
+                service = new StaffShiftOverviewServiceImpl(staffShiftRepository, userRepository);
     }
 
     @AfterEach

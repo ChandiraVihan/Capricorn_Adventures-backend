@@ -48,7 +48,7 @@ public class SecurityConfig {
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
             .csrf(AbstractHttpConfigurer::disable)
-            .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+            .cors(AbstractHttpConfigurer::disable)
             .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             
             // Exception handling for unauthorized access
@@ -68,16 +68,17 @@ public class SecurityConfig {
                     "/api/auth/reset-password",
                     "/api/v1/rooms/search",
                     "/api/v1/rooms/**",
+                    "/api/finance/**",
+                    "/api/manager/operations/**",
+                    "/api/room-service/orders/dashboard",
+                    "/api/room-service/orders/dashboard/**",
+                    "/api/room-service/orders/daily-summary",
                     "/oauth2/**",
                     "/login/oauth2/**",
                     "/api/webhooks/**"
                 ).permitAll()
     
-                // 2. Role-specific protected routes
-                .requestMatchers("/api/finance/**").hasRole("OWNER")
-                .requestMatchers("/api/manager/operations/**").hasRole("MANAGER")
-    
-                // 3. Fallback: Authenticated for any other request
+                // 2. Fallback: Authenticated for any other request
                 .anyRequest().authenticated()
             )
     
