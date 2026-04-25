@@ -1,9 +1,15 @@
 package com.capricorn_adventures.service.impl;
 
+import com.capricorn_adventures.dto.CreateStaffShiftRequestDTO;
+import com.capricorn_adventures.dto.StaffShiftResponseDTO;
 import com.capricorn_adventures.dto.StaffShiftOverviewResponseDTO;
 import com.capricorn_adventures.entity.StaffDepartment;
 import com.capricorn_adventures.entity.StaffShift;
+import com.capricorn_adventures.entity.User;
+import com.capricorn_adventures.exception.BadRequestException;
+import com.capricorn_adventures.exception.ResourceNotFoundException;
 import com.capricorn_adventures.repository.StaffShiftRepository;
+import com.capricorn_adventures.repository.UserRepository;
 import com.capricorn_adventures.service.StaffShiftOverviewService;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -26,9 +32,11 @@ public class StaffShiftOverviewServiceImpl implements StaffShiftOverviewService 
     private static final int REFRESH_INTERVAL_SECONDS = 60;
 
     private final StaffShiftRepository staffShiftRepository;
+    private final UserRepository userRepository;
 
-    public StaffShiftOverviewServiceImpl(StaffShiftRepository staffShiftRepository) {
+    public StaffShiftOverviewServiceImpl(StaffShiftRepository staffShiftRepository, UserRepository userRepository) {
         this.staffShiftRepository = staffShiftRepository;
+        this.userRepository = userRepository;
     }
 
     @Override
@@ -54,6 +62,29 @@ public class StaffShiftOverviewServiceImpl implements StaffShiftOverviewService 
         return response;
     }
 
+    @Override
+    @Transactional
+    public StaffShiftResponseDTO createShift(CreateStaffShiftRequestDTO request) {
+        if (request.getShiftEndAt() != null && request.getShiftEndAt().isBefore(request.getShiftStartAt())) {
+            throw new BadRequestException("Shift end time cannot be earlier than shift start time");
+        }
+
+        User staff = userRepository.findById(request.getStaffId())
+                .orElseThrow(() -> new ResourceNotFoundException("Staff user not found: " + request.getStaffId()));
+
+        StaffShift shift = new StaffShift();
+        shift.setStaff(staff);
+        shift.setDepartment(request.getDepartment());
+        shift.setShiftStartAt(request.getShiftStartAt());
+        shift.setShiftEndAt(request.getShiftEndAt());
+        shift.setCurrentTaskAssignment(request.getCurrentTaskAssignment());
+        shift.setLastActivityAt(request.getLastActivityAt());
+        shift.setHourlyRate(request.getHourlyRate());
+
+        StaffShift saved = staffShiftRepository.save(shift);
+        return mapShiftResponse(saved);
+    }
+
     private StaffShiftOverviewResponseDTO.DepartmentShiftDTO mapDepartment(StaffDepartment department,
                                                                            List<StaffShift> shifts) {
         StaffShiftOverviewResponseDTO.DepartmentShiftDTO dto = new StaffShiftOverviewResponseDTO.DepartmentShiftDTO();
@@ -75,6 +106,20 @@ public class StaffShiftOverviewServiceImpl implements StaffShiftOverviewService 
         dto.setShiftStartAt(shift.getShiftStartAt());
         dto.setCurrentTaskAssignment(shift.getCurrentTaskAssignment());
         dto.setLastActivityAt(shift.getLastActivityAt());
+        return dto;
+    }
+
+    private StaffShiftResponseDTO mapShiftResponse(StaffShift shift) {
+        StaffShiftResponseDTO dto = new StaffShiftResponseDTO();
+        dto.setShiftId(shift.getId());
+        dto.setStaffId(shift.getStaff().getId());
+        dto.setStaffName(resolveName(shift));
+        dto.setDepartment(shift.getDepartment().name());
+        dto.setShiftStartAt(shift.getShiftStartAt());
+        dto.setShiftEndAt(shift.getShiftEndAt());
+        dto.setCurrentTaskAssignment(shift.getCurrentTaskAssignment());
+        dto.setLastActivityAt(shift.getLastActivityAt());
+        dto.setHourlyRate(shift.getHourlyRate());
         return dto;
     }
 

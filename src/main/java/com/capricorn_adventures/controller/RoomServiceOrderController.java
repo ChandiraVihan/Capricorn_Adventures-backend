@@ -55,7 +55,6 @@ public class RoomServiceOrderController {
     }
 
     @GetMapping("/dashboard")
-    @PreAuthorize("hasRole('ADMIN') or hasRole('MANAGER')")
     public ResponseEntity<RoomServiceDashboardResponseDTO> getDashboard(
             @RequestParam(required = false) Integer floor,
             @RequestParam(required = false) Integer minRoom,
@@ -64,13 +63,11 @@ public class RoomServiceOrderController {
     }
 
     @GetMapping(value = "/dashboard/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    @PreAuthorize("hasRole('ADMIN') or hasRole('MANAGER')")
     public SseEmitter subscribeDashboard() {
         return orderService.subscribeDashboardEvents();
     }
 
     @GetMapping("/daily-summary")
-    @PreAuthorize("hasRole('ADMIN') or hasRole('MANAGER')")
     public ResponseEntity<RoomServiceDailyOpsSummaryResponseDTO> getDailySummary(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
         return ResponseEntity.ok(orderService.getDailySummary(date));
