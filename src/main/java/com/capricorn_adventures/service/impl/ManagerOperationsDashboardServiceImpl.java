@@ -3,6 +3,7 @@ package com.capricorn_adventures.service.impl;
 import com.capricorn_adventures.dto.ManagerOperationsDashboardResponseDTO;
 import com.capricorn_adventures.entity.AdventureSchedule;
 import com.capricorn_adventures.entity.OperationsAlert;
+import com.capricorn_adventures.exception.ResourceNotFoundException;
 import com.capricorn_adventures.repository.AdventureScheduleRepository;
 import com.capricorn_adventures.repository.OperationsAlertRepository;
 import com.capricorn_adventures.service.ManagerOperationsDashboardService;
@@ -56,6 +57,19 @@ public class ManagerOperationsDashboardServiceImpl implements ManagerOperationsD
                 .collect(Collectors.toList()));
         response.setWeeklyOccupancy(buildWeeklyOccupancy(weekStart, weeklySchedules));
         return response;
+    }
+
+    @Override
+    @org.springframework.transaction.annotation.Transactional
+    public ManagerOperationsDashboardResponseDTO.TourSlotDTO assignGuide(Long scheduleId, String guideName) {
+        AdventureSchedule schedule = scheduleRepository.findByIdWithAdventure(scheduleId)
+                .orElseThrow(() -> new ResourceNotFoundException("Schedule not found: " + scheduleId));
+
+        schedule.setAssignedGuideName(guideName == null ? null : guideName.trim());
+        AdventureSchedule updated = scheduleRepository.save(schedule);
+
+        Map<Long, List<ManagerOperationsDashboardResponseDTO.IssueDTO>> issuesByScheduleId = loadIssues(List.of(updated.getId()));
+        return mapTour(updated, LocalDateTime.now(), issuesByScheduleId.getOrDefault(updated.getId(), List.of()));
     }
 
     private Map<Long, List<ManagerOperationsDashboardResponseDTO.IssueDTO>> loadIssues(List<Long> scheduleIds) {
