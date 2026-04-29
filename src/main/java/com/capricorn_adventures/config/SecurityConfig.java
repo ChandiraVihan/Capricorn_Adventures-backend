@@ -76,7 +76,8 @@ public class SecurityConfig {
                     "/api/room-service/orders/daily-summary",
                     "/oauth2/**",
                     "/login/oauth2/**",
-                    "/api/webhooks/**"
+                    "/api/webhooks/**",
+                    "/api/payment/**"
                 ).permitAll()
     
                 // 2. Fallback: Authenticated for any other request
