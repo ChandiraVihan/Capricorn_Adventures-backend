@@ -77,7 +77,8 @@ public class SecurityConfig {
                     "/oauth2/**",
                     "/login/oauth2/**",
                     "/api/webhooks/**",
-                    "/api/payment/**"
+                    "/api/payment/**",
+                    "/api/v1/bookings/**"
                 ).permitAll()
     
                 // 2. Fallback: Authenticated for any other request
