@@ -69,8 +69,6 @@ public class SecurityConfig {
                     "/api/auth/reset-password",
                     "/api/v1/rooms/search",
                     "/api/v1/rooms/**",
-                    "/api/finance/**",
-                    "/api/manager/operations/**",
                     "/api/room-service/orders/dashboard",
                     "/api/room-service/orders/dashboard/**",
                     "/api/room-service/orders/daily-summary",
