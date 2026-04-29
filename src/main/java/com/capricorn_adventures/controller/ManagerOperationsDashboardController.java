@@ -10,6 +10,7 @@ import com.capricorn_adventures.service.StaffShiftOverviewService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -33,16 +34,19 @@ public class ManagerOperationsDashboardController {
         this.staffShiftOverviewService = staffShiftOverviewService;
     }
 
+    @PreAuthorize("hasRole('MANAGER')")
     @GetMapping("/dashboard")
     public ResponseEntity<ManagerOperationsDashboardResponseDTO> getDashboard() {
         return ResponseEntity.ok(dashboardService.getDashboard());
     }
 
+    @PreAuthorize("hasRole('MANAGER')")
     @GetMapping("/shift-overview")
     public ResponseEntity<StaffShiftOverviewResponseDTO> getShiftOverview() {
         return ResponseEntity.ok(staffShiftOverviewService.getCurrentShiftOverview());
     }
 
+    @PreAuthorize("hasRole('MANAGER')")
     @PatchMapping("/tours/{scheduleId}/assign-guide")
     public ResponseEntity<ManagerOperationsDashboardResponseDTO.TourSlotDTO> assignGuide(
             @PathVariable Long scheduleId,
@@ -50,6 +54,7 @@ public class ManagerOperationsDashboardController {
         return ResponseEntity.ok(dashboardService.assignGuide(scheduleId, request.getGuideName()));
     }
 
+    @PreAuthorize("hasRole('MANAGER')")
     @PostMapping("/shifts")
     public ResponseEntity<StaffShiftResponseDTO> createShift(@Valid @RequestBody CreateStaffShiftRequestDTO request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(staffShiftOverviewService.createShift(request));

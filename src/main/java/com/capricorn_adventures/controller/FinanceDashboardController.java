@@ -7,6 +7,7 @@ import java.time.format.DateTimeParseException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -24,12 +25,14 @@ public class FinanceDashboardController {
         this.profitLossDashboardService = profitLossDashboardService;
     }
 
+    @PreAuthorize("hasRole('OWNER')")
     @GetMapping("/pnl")
     public ResponseEntity<ProfitLossDashboardResponseDTO> getProfitAndLoss(
             @RequestParam(value = "month", required = false) String month) {
         return ResponseEntity.ok(profitLossDashboardService.getDashboard(parseMonth(month)));
     }
 
+    @PreAuthorize("hasRole('OWNER')")
     @GetMapping("/pnl/export")
     public ResponseEntity<byte[]> exportProfitAndLoss(
             @RequestParam(value = "month", required = false) String month) {
